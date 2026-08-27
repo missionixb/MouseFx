@@ -33,6 +33,7 @@ public class SettingsServiceTests
                 GlowRadius = 40,
                 GlowOpacity = 0.8,
                 RippleRadius = 100,
+                RippleShape = RippleShape.Note,
                 FollowSpeed = 80,
             };
             service.Save(s);
@@ -42,6 +43,7 @@ public class SettingsServiceTests
             Assert.Equal(40, loaded.GlowRadius);
             Assert.Equal(0.8, loaded.GlowOpacity, 3);
             Assert.Equal(100, loaded.RippleRadius);
+            Assert.Equal(RippleShape.Note, loaded.RippleShape);
             Assert.Equal(80, loaded.FollowSpeed);
         }
         finally

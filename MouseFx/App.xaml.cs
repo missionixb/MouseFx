@@ -67,6 +67,7 @@ public partial class App : Application
         _glow.FollowSpeed = _settings.FollowSpeed;
         _ripple!.Hue = _settings.Hue;
         _ripple.MaxRadius = _settings.RippleRadius;
+        _ripple.Shape = _settings.RippleShape;
     }
 
     /// <summary>打开设置窗口（单例，已开则激活；关闭后下次重建）。</summary>

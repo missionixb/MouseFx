@@ -1,11 +1,30 @@
 using System.Windows;
 using MouseFx.Effects;
+using MouseFx.Settings;
 using Xunit;
 
 namespace MouseFx.Tests;
 
 public class RippleEffectTests
 {
+    [Fact]
+    public void 默认波纹形状为圆圈()
+    {
+        Assert.Equal(RippleShape.Circle, new RippleEffect().Shape);
+    }
+
+    [Theory]
+    [InlineData(RippleShape.Circle)]
+    [InlineData(RippleShape.Heart)]
+    [InlineData(RippleShape.Clover)]
+    [InlineData(RippleShape.Note)]
+    public void 每种形状几何都有正尺寸(RippleShape shape)
+    {
+        var g = RippleShapes.For(shape);
+        Assert.True(g.Bounds.Width > 0, $"{shape} 宽度应为正");
+        Assert.True(g.Bounds.Height > 0, $"{shape} 高度应为正");
+    }
+
     [Fact]
     public void 按下后立即创建一个半径为零的波纹()
     {

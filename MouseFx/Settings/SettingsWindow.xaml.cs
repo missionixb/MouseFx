@@ -30,12 +30,14 @@ public partial class SettingsWindow : Window
         RippleToggle.IsChecked = ripple.Enabled;
         GlowToggle.IsChecked = glow.Enabled;
         AutoStartToggle.IsChecked = autoStart.IsEnabled;
+        RippleShapeBox.SelectedIndex = (int)settings.RippleShape;
 
         HueSlider.ValueChanged += (_, _) => ApplyAll();
         RadiusSlider.ValueChanged += (_, _) => ApplyAll();
         OpacitySlider.ValueChanged += (_, _) => ApplyAll();
         RippleSlider.ValueChanged += (_, _) => ApplyAll();
         SpeedSlider.ValueChanged += (_, _) => ApplyAll();
+        RippleShapeBox.SelectionChanged += (_, _) => ApplyAll();
         RippleToggle.Click += (_, _) => ripple.Enabled = RippleToggle.IsChecked == true;
         GlowToggle.Click += (_, _) => glow.Enabled = GlowToggle.IsChecked == true;
         AutoStartToggle.Click += (_, _) =>
@@ -53,6 +55,7 @@ public partial class SettingsWindow : Window
         _settings.GlowRadius = RadiusSlider.Value;
         _settings.GlowOpacity = OpacitySlider.Value;
         _settings.RippleRadius = RippleSlider.Value;
+        _settings.RippleShape = (RippleShape)RippleShapeBox.SelectedIndex;
         _settings.FollowSpeed = SpeedSlider.Value;
 
         _glow.Hue = _settings.Hue;
@@ -61,6 +64,7 @@ public partial class SettingsWindow : Window
         _glow.FollowSpeed = _settings.FollowSpeed;
         _ripple.Hue = _settings.Hue;
         _ripple.MaxRadius = _settings.RippleRadius;
+        _ripple.Shape = _settings.RippleShape;
 
         ColorPreview.Fill = new SolidColorBrush(ColorUtils.FromHue(_settings.Hue));
         HueValue.Text = $"{HueSlider.Value:0}°";

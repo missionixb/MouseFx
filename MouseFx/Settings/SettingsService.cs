@@ -1,11 +1,19 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace MouseFx.Settings;
 
 /// <summary>设置持久化：JSON 文件存取。任何异常都不抛出（保持程序可用）。</summary>
 public sealed class SettingsService
 {
+    /// <summary>读写共用配置：缩进 + 枚举存字符串（设置文件可读）。</summary>
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        Converters = { new JsonStringEnumConverter() },
+    };
+
     private readonly string _filePath;
 
     public SettingsService(string? filePath = null)
@@ -21,7 +29,7 @@ public sealed class SettingsService
         {
             if (!File.Exists(_filePath)) return AppSettings.CreateDefault();
             var json = File.ReadAllText(_filePath);
-            return JsonSerializer.Deserialize<AppSettings>(json) ?? AppSettings.CreateDefault();
+            return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? AppSettings.CreateDefault();
         }
         catch
         {
@@ -35,7 +43,7 @@ public sealed class SettingsService
         {
             var dir = Path.GetDirectoryName(_filePath)!;
             Directory.CreateDirectory(dir);
-            var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+            var json = JsonSerializer.Serialize(settings, JsonOptions);
             File.WriteAllText(_filePath, json);
         }
         catch

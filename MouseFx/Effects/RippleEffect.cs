@@ -26,6 +26,9 @@ public sealed class RippleEffect : IEffect
     /// <summary>主题色色相（0-360）。</summary>
     public double Hue { get; set; } = 210;
 
+    /// <summary>波纹扩散形状（圆圈/爱心/四叶草/音符）。</summary>
+    public RippleShape Shape { get; set; } = RippleShape.Circle;
+
     private Brush? _fill;
     private Pen? _pen;
     private double _fillHue = double.NaN;
@@ -66,13 +69,24 @@ public sealed class RippleEffect : IEffect
     {
         var fill = GetFillBrush();
         var pen = GetPen();
+        var shape = RippleShapes.For(Shape);
         foreach (var ripple in _ripples)
         {
             // 透明度交给 PushOpacity 分层，画刷/画笔保持不透明，可整体缓存 + Freeze
             dc.PushOpacity(ripple.Opacity);
-            dc.DrawEllipse(fill, pen, ripple.Position, ripple.Radius, ripple.Radius);
+            dc.PushTransform(CreateTransform(ripple)); // 形状几何按波纹半径缩放并平移到位置
+            dc.DrawGeometry(fill, pen, shape);
+            dc.Pop();
             dc.Pop();
         }
+    }
+
+    private static Transform CreateTransform(RippleState ripple)
+    {
+        var m = Matrix.Identity;
+        m.Scale(ripple.Radius, ripple.Radius);
+        m.Translate(ripple.Position.X, ripple.Position.Y);
+        return new MatrixTransform(m);
     }
 
     private Brush GetFillBrush()
