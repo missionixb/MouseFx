@@ -1,3 +1,4 @@
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
@@ -22,6 +23,7 @@ public partial class OverlayWindow : Window
     private readonly EffectManager _manager;
     private Matrix? _transformFromDevice;
     private DateTime _lastFrame;
+    private RenderMode _lastRenderMode = RenderMode.Default;
 
     public OverlayWindow(EffectManager manager)
     {
@@ -33,6 +35,38 @@ public partial class OverlayWindow : Window
         Height = SystemParameters.VirtualScreenHeight;
         Loaded += (_, _) => MakeClickThrough();
         CompositionTarget.Rendering += OnRendering;
+        RenderCapability.TierChanged += OnTierChanged;
+    }
+
+    /// <summary>
+    /// 渲染降级监控：硬件加速丢失（Tier &lt; 2）时自动切软件渲染并记录日志。
+    /// 软件渲染的透明窗口合成更稳定，可规避与其他 GPU 应用切换时的灰色合成异常。
+    /// </summary>
+    private void OnTierChanged(object sender, EventArgs e)
+    {
+        bool software = RenderCapability.Tier < 2;
+        var mode = software ? RenderMode.SoftwareOnly : RenderMode.Default;
+        if (mode == _lastRenderMode) return;
+        _lastRenderMode = mode;
+        RenderOptions.ProcessRenderMode = mode;
+        LogRenderMode($"TierChanged → Tier={RenderCapability.Tier}，切换为{(software ? "软件渲染" : "硬件加速")}");
+    }
+
+    private static void LogRenderMode(string message)
+    {
+        try
+        {
+            var dir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MouseFx");
+            Directory.CreateDirectory(dir);
+            File.AppendAllText(
+                Path.Combine(dir, "render.log"),
+                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {message}\n");
+        }
+        catch
+        {
+            // 日志失败不影响功能
+        }
     }
 
     private void MakeClickThrough()
