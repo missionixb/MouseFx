@@ -15,7 +15,7 @@ public sealed class TrayIcon : IDisposable
     private readonly ToolStripMenuItem _glowItem;
     private readonly ToolStripMenuItem _autoStartItem;
 
-    public TrayIcon(EffectManager manager, RippleEffect ripple, GlowEffect glow, IAutoStartService autoStart)
+    public TrayIcon(EffectManager manager, RippleEffect ripple, GlowEffect glow, IAutoStartService autoStart, Action openSettings)
     {
         _rippleItem = new ToolStripMenuItem("点击波纹") { CheckOnClick = true, Checked = ripple.Enabled };
         _glowItem = new ToolStripMenuItem("常驻光晕") { CheckOnClick = true, Checked = glow.Enabled };
@@ -28,11 +28,15 @@ public sealed class TrayIcon : IDisposable
             else autoStart.Disable();
         };
 
+        var settingsItem = new ToolStripMenuItem("设置…");
+        settingsItem.Click += (_, _) => openSettings();
+
         var menu = new ContextMenuStrip();
         menu.Items.Add(_rippleItem);
         menu.Items.Add(_glowItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(_autoStartItem);
+        menu.Items.Add(settingsItem);
         menu.Items.Add(new ToolStripSeparator());
         var exitItem = new ToolStripMenuItem("退出");
         exitItem.Click += (_, _) => System.Windows.Application.Current.Shutdown();
