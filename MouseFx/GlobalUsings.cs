@@ -3,4 +3,6 @@
 // 全局别名统一指向 WPF 类型；需要 Drawing 类型的地方（如 TrayIcon）用文件级别名覆盖。
 global using Point = System.Windows.Point;
 global using Color = System.Windows.Media.Color;
+global using Pen = System.Windows.Media.Pen;
+global using Brush = System.Windows.Media.Brush;
 global using Application = System.Windows.Application;
