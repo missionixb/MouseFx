@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/tests/">
+    <Project Path="tests/MouseFx.Tests/MouseFx.Tests.csproj" />
+  </Folder>
+  <Project Path="MouseFx/MouseFx.csproj" />
+</Solution>
