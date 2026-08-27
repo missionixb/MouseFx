@@ -55,7 +55,7 @@ public partial class App : Application
                 "鼠标特效", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
-        var tray = new TrayIcon(_manager, _ripple, _glow, _autoStart, OpenSettings);
+        var tray = new TrayIcon(OpenSettings);
         tray.Show();
     }
 
@@ -69,11 +69,15 @@ public partial class App : Application
         _ripple.MaxRadius = _settings.RippleRadius;
     }
 
-    /// <summary>打开设置窗口（单例，已开则激活）。</summary>
+    /// <summary>打开设置窗口（单例，已开则激活；关闭后下次重建）。</summary>
     private void OpenSettings()
     {
         if (_settingsWindow == null)
-            _settingsWindow = new SettingsWindow(_settings!, _glow!, _ripple!, _settingsService);
+        {
+            _settingsWindow = new SettingsWindow(_settings!, _glow!, _ripple!, _autoStart, _settingsService);
+            // WPF 窗口关闭后不能重新 Show()，关闭时释放引用以便下次重建
+            _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+        }
         if (_settingsWindow.IsVisible)
             _settingsWindow.Activate();
         else

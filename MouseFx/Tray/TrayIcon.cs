@@ -1,41 +1,26 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
-using MouseFx.Effects;
-using MouseFx.Platform;
 // 注意：Color 已由全局别名指向 System.Windows.Media.Color，这里需要 Drawing 的 Color 时全限定
 
 namespace MouseFx.Tray;
 
+/// <summary>
+/// 系统托盘图标。左键/右键都弹出同一菜单；菜单只含「设置…」与「退出」。
+/// 特效开关与开机自启动均已收纳到设置窗口。
+/// </summary>
 public sealed class TrayIcon : IDisposable
 {
     private readonly NotifyIcon _icon;
-    private readonly ToolStripMenuItem _rippleItem;
-    private readonly ToolStripMenuItem _glowItem;
-    private readonly ToolStripMenuItem _autoStartItem;
 
-    public TrayIcon(EffectManager manager, RippleEffect ripple, GlowEffect glow, IAutoStartService autoStart, Action openSettings)
+    public TrayIcon(Action openSettings)
     {
-        _rippleItem = new ToolStripMenuItem("点击波纹") { CheckOnClick = true, Checked = ripple.Enabled };
-        _glowItem = new ToolStripMenuItem("常驻光晕") { CheckOnClick = true, Checked = glow.Enabled };
-        _autoStartItem = new ToolStripMenuItem("开机自启动") { CheckOnClick = true, Checked = autoStart.IsEnabled };
-        _rippleItem.CheckedChanged += (_, _) => ripple.Enabled = _rippleItem.Checked;
-        _glowItem.CheckedChanged += (_, _) => glow.Enabled = _glowItem.Checked;
-        _autoStartItem.CheckedChanged += (_, _) =>
-        {
-            if (_autoStartItem.Checked) autoStart.Enable();
-            else autoStart.Disable();
-        };
-
         var settingsItem = new ToolStripMenuItem("设置…");
         settingsItem.Click += (_, _) => openSettings();
 
         var menu = new ContextMenuStrip();
-        menu.Items.Add(_rippleItem);
-        menu.Items.Add(_glowItem);
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(_autoStartItem);
         menu.Items.Add(settingsItem);
         menu.Items.Add(new ToolStripSeparator());
         var exitItem = new ToolStripMenuItem("退出");
@@ -49,16 +34,21 @@ public sealed class TrayIcon : IDisposable
             ContextMenuStrip = menu,
             Visible = true,
         };
-        // 双击托盘图标：全部特效开关取反（快速总开关）
-        _icon.DoubleClick += (_, _) =>
+        // 左键单击与右键一致：弹出同一菜单
+        _icon.MouseUp += (_, e) =>
         {
-            bool anyEnabled = _rippleItem.Checked || _glowItem.Checked;
-            _rippleItem.Checked = !anyEnabled;
-            _glowItem.Checked = !anyEnabled;
+            if (e.Button == MouseButtons.Left) ShowContextMenu();
         };
     }
 
     public void Show() { /* 已在构造函数中置 Visible=true */ }
+
+    /// <summary>弹出托盘菜单（NotifyIcon.ShowContextMenu 是私有方法，经反射调用）。</summary>
+    private void ShowContextMenu()
+    {
+        typeof(NotifyIcon).GetMethod("ShowContextMenu", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(_icon, null);
+    }
 
     private static Icon CreateIcon()
     {

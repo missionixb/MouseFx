@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Media;
 using MouseFx.Effects;
+using MouseFx.Platform;
 
 namespace MouseFx.Settings;
 
@@ -11,7 +12,8 @@ public partial class SettingsWindow : Window
     private readonly RippleEffect _ripple;
     private readonly SettingsService _service;
 
-    public SettingsWindow(AppSettings settings, GlowEffect glow, RippleEffect ripple, SettingsService service)
+    public SettingsWindow(AppSettings settings, GlowEffect glow, RippleEffect ripple,
+        IAutoStartService autoStart, SettingsService service)
     {
         _settings = settings;
         _glow = glow;
@@ -19,18 +21,28 @@ public partial class SettingsWindow : Window
         _service = service;
         InitializeComponent();
 
-        // 先赋值（此时事件未挂接，不会触发 ApplyAll），再挂事件，最后统一同步一次
+        // 先赋值（此时事件未挂接，不会触发），再挂事件，最后统一同步一次
         HueSlider.Value = settings.Hue;
         RadiusSlider.Value = settings.GlowRadius;
         OpacitySlider.Value = settings.GlowOpacity;
         RippleSlider.Value = settings.RippleRadius;
         SpeedSlider.Value = settings.FollowSpeed;
+        RippleToggle.IsChecked = ripple.Enabled;
+        GlowToggle.IsChecked = glow.Enabled;
+        AutoStartToggle.IsChecked = autoStart.IsEnabled;
 
         HueSlider.ValueChanged += (_, _) => ApplyAll();
         RadiusSlider.ValueChanged += (_, _) => ApplyAll();
         OpacitySlider.ValueChanged += (_, _) => ApplyAll();
         RippleSlider.ValueChanged += (_, _) => ApplyAll();
         SpeedSlider.ValueChanged += (_, _) => ApplyAll();
+        RippleToggle.Click += (_, _) => ripple.Enabled = RippleToggle.IsChecked == true;
+        GlowToggle.Click += (_, _) => glow.Enabled = GlowToggle.IsChecked == true;
+        AutoStartToggle.Click += (_, _) =>
+        {
+            if (AutoStartToggle.IsChecked == true) autoStart.Enable();
+            else autoStart.Disable();
+        };
         ApplyAll();
     }
 
