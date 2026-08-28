@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Media;
 using MouseFx.Effects;
 using MouseFx.Hooks;
 using MouseFx.Overlay;
@@ -19,6 +20,7 @@ public partial class App : Application
     private SettingsWindow? _settingsWindow;
     private RippleEffect? _ripple;
     private GlowEffect? _glow;
+    private SparkEffect? _spark;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -33,11 +35,16 @@ public partial class App : Application
         _manager = new EffectManager();
         _ripple = new RippleEffect { Enabled = true };
         _glow = new GlowEffect { Enabled = true };
+        _spark = new SparkEffect();
+        if (RenderCapability.Tier < 2)
+            _spark.PoolLimit = 120; // 软件渲染时降低粒子密度
         ApplySettingsToEffects();
         _manager.Register(_ripple);
         _manager.Register(_glow);
+        _manager.Register(_spark); // 最后注册 → 绘制在最上层
 
-        _overlay = new OverlayWindow(_manager);
+        // 渲染降级时同步调整火花粒子密度
+        _overlay = new OverlayWindow(_manager, software => _spark!.PoolLimit = software ? 120 : 250);
         _overlay.Show();
 
         _hook = new MouseHook();
@@ -68,6 +75,10 @@ public partial class App : Application
         _ripple!.Hue = _settings.Hue;
         _ripple.MaxRadius = _settings.RippleRadius;
         _ripple.Shape = _settings.RippleShape;
+        _spark!.Hue = _settings.Hue;
+        _spark.Enabled = _settings.SparkEnabled;
+        _ripple.Enabled = _settings.RippleEnabled;
+        _glow!.Enabled = _settings.GlowEnabled;
     }
 
     /// <summary>打开设置窗口（单例，已开则激活；关闭后下次重建）。</summary>
@@ -75,7 +86,7 @@ public partial class App : Application
     {
         if (_settingsWindow == null)
         {
-            _settingsWindow = new SettingsWindow(_settings!, _glow!, _ripple!, _autoStart, _settingsService);
+            _settingsWindow = new SettingsWindow(_settings!, _glow!, _ripple!, _spark!, _autoStart, _settingsService);
             // WPF 窗口关闭后不能重新 Show()，关闭时释放引用以便下次重建
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
         }

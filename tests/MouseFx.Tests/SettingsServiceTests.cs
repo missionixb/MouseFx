@@ -18,6 +18,9 @@ public class SettingsServiceTests
         Assert.Equal(0.35, s.GlowOpacity, 3);
         Assert.Equal(60, s.RippleRadius);
         Assert.Equal(50, s.FollowSpeed);
+        Assert.True(s.RippleEnabled);   // 开关缺省：波纹/光晕开，火花关
+        Assert.True(s.GlowEnabled);
+        Assert.False(s.SparkEnabled);
     }
 
     [Fact]
@@ -34,6 +37,9 @@ public class SettingsServiceTests
                 GlowOpacity = 0.8,
                 RippleRadius = 100,
                 RippleShape = RippleShape.Star,
+                RippleEnabled = false,
+                GlowEnabled = false,
+                SparkEnabled = true,
                 FollowSpeed = 80,
             };
             service.Save(s);
@@ -44,6 +50,9 @@ public class SettingsServiceTests
             Assert.Equal(0.8, loaded.GlowOpacity, 3);
             Assert.Equal(100, loaded.RippleRadius);
             Assert.Equal(RippleShape.Star, loaded.RippleShape);
+            Assert.False(loaded.RippleEnabled);
+            Assert.False(loaded.GlowEnabled);
+            Assert.True(loaded.SparkEnabled);
             Assert.Equal(80, loaded.FollowSpeed);
         }
         finally

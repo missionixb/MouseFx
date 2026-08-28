@@ -10,14 +10,16 @@ public partial class SettingsWindow : Window
     private readonly AppSettings _settings;
     private readonly GlowEffect _glow;
     private readonly RippleEffect _ripple;
+    private readonly SparkEffect _spark;
     private readonly SettingsService _service;
 
-    public SettingsWindow(AppSettings settings, GlowEffect glow, RippleEffect ripple,
+    public SettingsWindow(AppSettings settings, GlowEffect glow, RippleEffect ripple, SparkEffect spark,
         IAutoStartService autoStart, SettingsService service)
     {
         _settings = settings;
         _glow = glow;
         _ripple = ripple;
+        _spark = spark;
         _service = service;
         InitializeComponent();
 
@@ -29,6 +31,7 @@ public partial class SettingsWindow : Window
         SpeedSlider.Value = settings.FollowSpeed;
         RippleToggle.IsChecked = ripple.Enabled;
         GlowToggle.IsChecked = glow.Enabled;
+        SparkToggle.IsChecked = spark.Enabled;
         AutoStartToggle.IsChecked = autoStart.IsEnabled;
         RippleShapeBox.SelectedIndex = (int)settings.RippleShape;
 
@@ -38,8 +41,9 @@ public partial class SettingsWindow : Window
         RippleSlider.ValueChanged += (_, _) => ApplyAll();
         SpeedSlider.ValueChanged += (_, _) => ApplyAll();
         RippleShapeBox.SelectionChanged += (_, _) => ApplyAll();
-        RippleToggle.Click += (_, _) => ripple.Enabled = RippleToggle.IsChecked == true;
-        GlowToggle.Click += (_, _) => glow.Enabled = GlowToggle.IsChecked == true;
+        RippleToggle.Click += (_, _) => ApplyToggle(ripple.Enabled = RippleToggle.IsChecked == true, v => _settings.RippleEnabled = v);
+        GlowToggle.Click += (_, _) => ApplyToggle(glow.Enabled = GlowToggle.IsChecked == true, v => _settings.GlowEnabled = v);
+        SparkToggle.Click += (_, _) => ApplyToggle(spark.Enabled = SparkToggle.IsChecked == true, v => _settings.SparkEnabled = v);
         AutoStartToggle.Click += (_, _) =>
         {
             if (AutoStartToggle.IsChecked == true) autoStart.Enable();
@@ -65,6 +69,7 @@ public partial class SettingsWindow : Window
         _ripple.Hue = _settings.Hue;
         _ripple.MaxRadius = _settings.RippleRadius;
         _ripple.Shape = _settings.RippleShape;
+        _spark.Hue = _settings.Hue;
 
         ColorPreview.Fill = new SolidColorBrush(ColorUtils.FromHue(_settings.Hue));
         HueValue.Text = $"{HueSlider.Value:0}°";
@@ -73,6 +78,13 @@ public partial class SettingsWindow : Window
         RippleValue.Text = $"{RippleSlider.Value:0} px";
         SpeedValue.Text = $"{SpeedSlider.Value:0}";
 
+        _service.Save(_settings);
+    }
+
+    /// <summary>特效开关：同步设置字段并保存（开关即时生效且重启后保留）。</summary>
+    private void ApplyToggle(bool enabled, Action<bool> write)
+    {
+        write(enabled);
         _service.Save(_settings);
     }
 }

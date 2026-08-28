@@ -10,6 +10,7 @@
         <TextBlock Text="开关即时生效" Foreground="#888" FontSize="11" Margin="0,0,0,8"/>
         <CheckBox x:Name="RippleToggle" Content="点击波纹" Margin="0,0,0,4"/>
         <CheckBox x:Name="GlowToggle" Content="常驻光晕" Margin="0,0,0,4"/>
+        <CheckBox x:Name="SparkToggle" Content="火花（鼠标火星粒子）" Margin="0,0,0,4"/>
         <CheckBox x:Name="AutoStartToggle" Content="开机自启动" Margin="0,0,0,0"/>
         <Separator Margin="0,14,0,12"/>
 
@@ -40,7 +41,7 @@
                 <ColumnDefinition Width="70"/>
             </Grid.ColumnDefinitions>
             <TextBlock Text="光圈大小" VerticalAlignment="Center"/>
-            <Slider x:Name="RadiusSlider" Grid.Column="1" Minimum="10" Maximum="60" VerticalAlignment="Center" IsMoveToPointEnabled="True"/>
+            <Slider x:Name="RadiusSlider" Grid.Column="1" Minimum="10" Maximum="120" VerticalAlignment="Center" IsMoveToPointEnabled="True"/>
             <TextBlock x:Name="RadiusValue" Grid.Column="2" TextAlignment="Right" VerticalAlignment="Center"/>
         </Grid>
 

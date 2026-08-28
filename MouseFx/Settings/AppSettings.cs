@@ -26,6 +26,15 @@ public sealed class AppSettings
     /// <summary>点击波纹扩散形状。</summary>
     public RippleShape RippleShape { get; set; } = RippleShape.Circle;
 
+    /// <summary>点击波纹开关（持久化；旧设置文件缺省时默认开启）。</summary>
+    public bool RippleEnabled { get; set; } = true;
+
+    /// <summary>常驻光晕开关（持久化；旧设置文件缺省时默认开启）。</summary>
+    public bool GlowEnabled { get; set; } = true;
+
+    /// <summary>火花特效开关（持久化；旧设置文件缺省时默认关闭）。</summary>
+    public bool SparkEnabled { get; set; }
+
     /// <summary>光晕跟随指数系数 k（/s），越大越跟手。</summary>
     public double FollowSpeed { get; set; } = 50;
 

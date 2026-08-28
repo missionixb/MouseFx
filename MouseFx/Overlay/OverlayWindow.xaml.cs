@@ -21,13 +21,17 @@ public partial class OverlayWindow : Window
     private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 
     private readonly EffectManager _manager;
+    private readonly Action<bool>? _onRenderModeChanged;
     private Matrix? _transformFromDevice;
     private DateTime _lastFrame;
     private RenderMode _lastRenderMode = RenderMode.Default;
 
-    public OverlayWindow(EffectManager manager)
+    /// <param name="manager">特效管理器。</param>
+    /// <param name="onRenderModeChanged">渲染模式切换回调（参数：是否软件渲染），供特效调整密度。</param>
+    public OverlayWindow(EffectManager manager, Action<bool>? onRenderModeChanged = null)
     {
         _manager = manager;
+        _onRenderModeChanged = onRenderModeChanged;
         InitializeComponent();
         Left = SystemParameters.VirtualScreenLeft;
         Top = SystemParameters.VirtualScreenTop;
@@ -50,6 +54,7 @@ public partial class OverlayWindow : Window
         _lastRenderMode = mode;
         RenderOptions.ProcessRenderMode = mode;
         LogRenderMode($"TierChanged → Tier={RenderCapability.Tier}，切换为{(software ? "软件渲染" : "硬件加速")}");
+        _onRenderModeChanged?.Invoke(software);
     }
 
     private static void LogRenderMode(string message)
