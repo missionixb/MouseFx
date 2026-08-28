@@ -21,6 +21,7 @@ public partial class App : Application
     private RippleEffect? _ripple;
     private GlowEffect? _glow;
     private SparkEffect? _spark;
+    private SparklerEffect? _sparkler;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -36,15 +37,25 @@ public partial class App : Application
         _ripple = new RippleEffect { Enabled = true };
         _glow = new GlowEffect { Enabled = true };
         _spark = new SparkEffect();
-        if (RenderCapability.Tier < 2)
-            _spark.PoolLimit = 120; // 软件渲染时降低粒子密度
+        _sparkler = new SparklerEffect();
         ApplySettingsToEffects();
+        if (RenderCapability.Tier < 2)
+            ApplySoftwareDensity(); // 软件渲染时限制粒子密度
         _manager.Register(_ripple);
         _manager.Register(_glow);
-        _manager.Register(_spark); // 最后注册 → 绘制在最上层
+        _manager.Register(_spark);
+        _manager.Register(_sparkler); // 最后注册 → 绘制在最上层
 
-        // 渲染降级时同步调整火花粒子密度
-        _overlay = new OverlayWindow(_manager, software => _spark!.PoolLimit = software ? 120 : 250);
+        // 渲染降级/恢复时同步调整粒子特效密度
+        _overlay = new OverlayWindow(_manager, software =>
+        {
+            if (software) ApplySoftwareDensity();
+            else
+            {
+                _spark!.PoolLimit = _settings!.SparkCount;
+                _sparkler!.PoolLimit = _settings!.SparklerCount;
+            }
+        });
         _overlay.Show();
 
         _hook = new MouseHook();
@@ -75,10 +86,33 @@ public partial class App : Application
         _ripple!.Hue = _settings.Hue;
         _ripple.MaxRadius = _settings.RippleRadius;
         _ripple.Shape = _settings.RippleShape;
-        _spark!.Hue = _settings.Hue;
-        _spark.Enabled = _settings.SparkEnabled;
-        _ripple.Enabled = _settings.RippleEnabled;
-        _glow!.Enabled = _settings.GlowEnabled;
+        _spark!.Hue = _settings.SparkHue;   // 火花颜色与经典特效分开
+        _spark.PoolLimit = _settings.SparkCount;
+        _sparkler!.PoolLimit = _settings.SparklerCount;
+        _glow.IdleFade = _settings.IdleFade;
+        _spark.IdleFade = _settings.IdleFade;
+        _sparkler.IdleFade = _settings.IdleFade;
+        ApplyEffectMode(_settings.EffectMode);
+    }
+
+    /// <summary>软件渲染时限制粒子特效密度（避免 CPU 光栅化过载）。</summary>
+    private void ApplySoftwareDensity()
+    {
+        _spark!.PoolLimit = Math.Min(_settings!.SparkCount, 120);
+        _sparkler!.PoolLimit = Math.Min(_settings!.SparklerCount, 200);
+    }
+
+    /// <summary>应用特效模式：同一时刻只启用一种（经典组合 / 火花 / 仙女棒），并同步旧开关字段。</summary>
+    private void ApplyEffectMode(EffectMode mode)
+    {
+        _settings!.EffectMode = mode;
+        _settings.RippleEnabled = mode == EffectMode.Classic;
+        _settings.GlowEnabled = mode == EffectMode.Classic;
+        _settings.SparkEnabled = mode == EffectMode.Spark;
+        _ripple!.Enabled = mode == EffectMode.Classic;
+        _glow!.Enabled = mode == EffectMode.Classic;
+        _spark!.Enabled = mode == EffectMode.Spark;
+        _sparkler!.Enabled = mode == EffectMode.Sparkler;
     }
 
     /// <summary>打开设置窗口（单例，已开则激活；关闭后下次重建）。</summary>
@@ -86,7 +120,7 @@ public partial class App : Application
     {
         if (_settingsWindow == null)
         {
-            _settingsWindow = new SettingsWindow(_settings!, _glow!, _ripple!, _spark!, _autoStart, _settingsService);
+            _settingsWindow = new SettingsWindow(_settings!, _glow!, _ripple!, _spark!, _sparkler!, _autoStart, _settingsService);
             // WPF 窗口关闭后不能重新 Show()，关闭时释放引用以便下次重建
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
         }

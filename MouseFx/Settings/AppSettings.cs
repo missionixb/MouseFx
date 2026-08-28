@@ -8,6 +8,17 @@ public enum RippleShape
     Star,
 }
 
+/// <summary>特效模式（三选一，互斥；后续新特效在此扩展）。枚举顺序与设置界面下拉框一致。</summary>
+public enum EffectMode
+{
+    /// <summary>经典组合：常驻光晕 + 点击波纹。</summary>
+    Classic,
+    /// <summary>火花：跟随鼠标运动方向的拖尾迸射，颜色可调。</summary>
+    Spark,
+    /// <summary>仙女棒：以鼠标为中心 360° 爆发，颜色固定。</summary>
+    Sparkler,
+}
+
 /// <summary>用户可配置参数（可序列化，全部带默认值）。</summary>
 public sealed class AppSettings
 {
@@ -26,14 +37,29 @@ public sealed class AppSettings
     /// <summary>点击波纹扩散形状。</summary>
     public RippleShape RippleShape { get; set; } = RippleShape.Circle;
 
-    /// <summary>点击波纹开关（持久化；旧设置文件缺省时默认开启）。</summary>
+    /// <summary>特效模式（三选一；旧设置文件缺省时按旧开关字段推导，推导不出则 Classic）。</summary>
+    public EffectMode EffectMode { get; set; } = EffectMode.Classic;
+
+    /// <summary>旧版开关字段，现由 EffectMode 统一驱动，仅作旧文件读取兼容与新文件回写（旧版程序可读）。</summary>
     public bool RippleEnabled { get; set; } = true;
 
-    /// <summary>常驻光晕开关（持久化；旧设置文件缺省时默认开启）。</summary>
+    /// <summary>旧版开关字段，同上。</summary>
     public bool GlowEnabled { get; set; } = true;
 
-    /// <summary>火花特效开关（持久化；旧设置文件缺省时默认关闭）。</summary>
+    /// <summary>旧版开关字段，同上。</summary>
     public bool SparkEnabled { get; set; }
+
+    /// <summary>鼠标静止（或输入断流）2 秒后特效是否淡出消失（持久化；作用于光晕/火花/仙女棒）。</summary>
+    public bool IdleFade { get; set; } = true;
+
+    /// <summary>火花主色色相（0-360），与经典特效（光圈+点击）的颜色分开保存。默认橙金。</summary>
+    public double SparkHue { get; set; } = 30;
+
+    /// <summary>火花粒子上限（颗，50~400），超出回收最早发射的。</summary>
+    public int SparkCount { get; set; } = 250;
+
+    /// <summary>仙女棒粒子上限（颗，100~600），超出回收最早发射的。</summary>
+    public int SparklerCount { get; set; } = 400;
 
     /// <summary>光晕跟随指数系数 k（/s），越大越跟手。</summary>
     public double FollowSpeed { get; set; } = 50;

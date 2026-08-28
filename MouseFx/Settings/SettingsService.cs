@@ -11,7 +11,11 @@ public sealed class SettingsService
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
-        Converters = { new RippleShapeJsonConverter() }, // 项目唯一枚举，容错转换器全权接管
+        Converters =
+        {
+            new TolerantEnumJsonConverter<RippleShape>(RippleShape.Circle),
+            new TolerantEnumJsonConverter<EffectMode>(EffectMode.Classic),
+        },
     };
 
     private readonly string _filePath;
@@ -29,7 +33,16 @@ public sealed class SettingsService
         {
             if (!File.Exists(_filePath)) return AppSettings.CreateDefault();
             var json = File.ReadAllText(_filePath);
-            return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? AppSettings.CreateDefault();
+            using var doc = JsonDocument.Parse(json);
+            var settings = doc.RootElement.Deserialize<AppSettings>(JsonOptions) ?? AppSettings.CreateDefault();
+
+            // 旧版设置文件没有 EffectMode 字段：按旧开关字段推导（火花开 → Spark，否则 Classic）
+            if (doc.RootElement.ValueKind == JsonValueKind.Object &&
+                !doc.RootElement.TryGetProperty("EffectMode", out _))
+            {
+                settings.EffectMode = settings.SparkEnabled ? EffectMode.Spark : EffectMode.Classic;
+            }
+            return settings;
         }
         catch
         {

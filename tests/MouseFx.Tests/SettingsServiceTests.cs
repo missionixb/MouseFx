@@ -18,9 +18,14 @@ public class SettingsServiceTests
         Assert.Equal(0.35, s.GlowOpacity, 3);
         Assert.Equal(60, s.RippleRadius);
         Assert.Equal(50, s.FollowSpeed);
-        Assert.True(s.RippleEnabled);   // 开关缺省：波纹/光晕开，火花关
+        Assert.True(s.RippleEnabled);   // 开关缺省：经典组合开，静止淡出开
         Assert.True(s.GlowEnabled);
         Assert.False(s.SparkEnabled);
+        Assert.True(s.IdleFade);
+        Assert.Equal(EffectMode.Classic, s.EffectMode);
+        Assert.Equal(30, s.SparkHue);       // 火花默认橙金，与经典颜色（210 蓝）独立
+        Assert.Equal(250, s.SparkCount);
+        Assert.Equal(400, s.SparklerCount);
     }
 
     [Fact]
@@ -40,6 +45,11 @@ public class SettingsServiceTests
                 RippleEnabled = false,
                 GlowEnabled = false,
                 SparkEnabled = true,
+                IdleFade = false,
+                EffectMode = EffectMode.Sparkler,
+                SparkHue = 45,
+                SparkCount = 120,
+                SparklerCount = 300,
                 FollowSpeed = 80,
             };
             service.Save(s);
@@ -53,6 +63,11 @@ public class SettingsServiceTests
             Assert.False(loaded.RippleEnabled);
             Assert.False(loaded.GlowEnabled);
             Assert.True(loaded.SparkEnabled);
+            Assert.False(loaded.IdleFade);
+            Assert.Equal(EffectMode.Sparkler, loaded.EffectMode);
+            Assert.Equal(45, loaded.SparkHue);
+            Assert.Equal(120, loaded.SparkCount);
+            Assert.Equal(300, loaded.SparklerCount);
             Assert.Equal(80, loaded.FollowSpeed);
         }
         finally
@@ -92,6 +107,66 @@ public class SettingsServiceTests
             Assert.Equal(RippleShape.Circle, s.RippleShape); // 未知形状 → 圆圈
             Assert.Equal(120, s.Hue);                        // 其余设置不受影响
             Assert.Equal(40, s.GlowRadius);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void 旧设置文件无模式字段时按旧开关字段推导()
+    {
+        var path = TempPath();
+        try
+        {
+            // 旧版程序写的文件：没有 EffectMode，只有三个开关
+            File.WriteAllText(path, "{ \"RippleEnabled\": false, \"GlowEnabled\": false, \"SparkEnabled\": true }");
+            var s = new SettingsService(path).Load();
+
+            Assert.Equal(EffectMode.Spark, s.EffectMode); // 火花开 → 火花模式
+
+            File.WriteAllText(path, "{ \"RippleEnabled\": true, \"GlowEnabled\": true, \"SparkEnabled\": false }");
+            var classic = new SettingsService(path).Load();
+
+            Assert.Equal(EffectMode.Classic, classic.EffectMode); // 经典组合 → Classic
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void 新设置文件的模式字段优先生效()
+    {
+        var path = TempPath();
+        try
+        {
+            // 新文件同时含模式与旧开关：以模式为准
+            File.WriteAllText(path,
+                "{ \"EffectMode\": \"Classic\", \"RippleEnabled\": false, \"GlowEnabled\": false, \"SparkEnabled\": true }");
+            var s = new SettingsService(path).Load();
+
+            Assert.Equal(EffectMode.Classic, s.EffectMode);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void 非法模式值回退经典模式()
+    {
+        var path = TempPath();
+        try
+        {
+            File.WriteAllText(path, "{ \"EffectMode\": \"Bogus\" }");
+            var s = new SettingsService(path).Load();
+
+            Assert.Equal(EffectMode.Classic, s.EffectMode);
+            Assert.True(s.RippleEnabled); // 其余字段不受影响
         }
         finally
         {

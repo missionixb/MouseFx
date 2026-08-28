@@ -123,4 +123,38 @@ public class SparkEffectTests
         // 母火星寿命 ≥ 0.4s；子火星寿命 0.2~0.45s，池中出现 <0.4s 的即子火星
         Assert.Contains(effect.ActiveSparks, s => s.Life < 0.4);
     }
+
+    [Fact]
+    public void 输入断流后停止发射且存量火星自然烧尽()
+    {
+        var effect = new SparkEffect(new Random(11)) { Enabled = true };
+        effect.OnMouseMove(new Point(0, 0));
+        effect.Update(Frame());
+        Assert.NotEmpty(effect.ActiveSparks);
+        Assert.False(effect.InputStalled);
+
+        // 断流 ~3.4s：先跑到超阈值，确认进入断流态；存量火星最长 0.9s 也已烧尽。
+        // 若停发生效，池必然清空；否则静止发射会持续补充，永远不会空。
+        for (int i = 0; i < 130; i++)
+            effect.Update(Frame()); // ~2.08s，刚超过 2s 阈值
+        Assert.True(effect.InputStalled);
+
+        for (int i = 0; i < 80; i++)
+            effect.Update(Frame());
+
+        Assert.Empty(effect.ActiveSparks);
+    }
+
+    [Fact]
+    public void 关闭静止淡出后断流仍持续发射()
+    {
+        var effect = new SparkEffect(new Random(11)) { Enabled = true, IdleFade = false };
+        effect.OnMouseMove(new Point(0, 0));
+
+        for (int i = 0; i < 210; i++) // 断流 ~3.4s：IdleFade 关闭 → 继续发射，池不空
+            effect.Update(Frame());
+
+        Assert.True(effect.InputStalled); // 断流态成立
+        Assert.NotEmpty(effect.ActiveSparks); // 但仍在发射
+    }
 }

@@ -58,4 +58,62 @@ public class GlowEffectTests
         Assert.InRange(a.Position.X, 99, 101);
         Assert.InRange(a.Position.Y, 99, 101);
     }
+
+    [Fact]
+    public void 输入断流超过阈值后光晕淡出且一秒内淡到零()
+    {
+        var effect = new GlowEffect();
+        effect.OnMouseMove(new Point(0, 0));
+        effect.Update(TimeSpan.FromMilliseconds(16));
+        Assert.Equal(1, effect.InputFade); // 有输入 → 不淡出
+
+        for (int i = 0; i < 150; i++) // 断流 ~2.4s：超过 2s 阈值 0.4s，处于 0.5s 淡出中途
+            effect.Update(TimeSpan.FromMilliseconds(16));
+
+        Assert.True(effect.InputFade < 1, "断流超阈值后应开始淡出");
+        Assert.True(effect.InputFade > 0, "刚超阈值 0.5s 内尚未淡完");
+
+        effect.Update(TimeSpan.FromSeconds(1));
+        Assert.Equal(0, effect.InputFade); // 继续断流 → 完全隐藏
+    }
+
+    [Fact]
+    public void 恢复输入立即淡回不透明()
+    {
+        var effect = new GlowEffect();
+        effect.OnMouseMove(new Point(0, 0));
+        for (int i = 0; i < 200; i++) effect.Update(TimeSpan.FromMilliseconds(16)); // 断流淡出
+        Assert.Equal(0, effect.InputFade);
+
+        effect.OnMouseMove(new Point(50, 50)); // 输入恢复
+        effect.Update(TimeSpan.FromMilliseconds(16));
+
+        Assert.Equal(1, effect.InputFade);
+    }
+
+    [Fact]
+    public void 点击也算输入会重置断流计时()
+    {
+        var effect = new GlowEffect();
+        effect.OnMouseMove(new Point(0, 0));
+        for (int i = 0; i < 150; i++) effect.Update(TimeSpan.FromMilliseconds(16)); // 断流 ~2.4s
+        Assert.True(effect.InputFade < 1);
+
+        effect.OnMouseDown(new Point(0, 0)); // 点击（如波纹触发）证明输入仍活跃
+        effect.Update(TimeSpan.FromMilliseconds(16));
+
+        Assert.Equal(1, effect.InputFade);
+    }
+
+    [Fact]
+    public void 关闭静止淡出后光晕常亮不消失()
+    {
+        var effect = new GlowEffect { IdleFade = false };
+        effect.OnMouseMove(new Point(0, 0));
+
+        for (int i = 0; i < 250; i++) // 断流 4s，远超阈值
+            effect.Update(TimeSpan.FromMilliseconds(16));
+
+        Assert.Equal(1, effect.InputFade); // IdleFade 关闭 → 永不淡出
+    }
 }

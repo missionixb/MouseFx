@@ -46,6 +46,9 @@ public sealed class SparkEffect : IEffect
     /// <summary>粒子上限，超出回收最早发射的（软渲染降级时可调低粒子密度）。</summary>
     public int PoolLimit { get; set; } = 250;
 
+    /// <summary>鼠标静止（或输入断流）2 秒后是否停止发射。false = 静止时持续冒火星。</summary>
+    public bool IdleFade { get; set; } = true;
+
     /// <summary>已发生的炸裂次数（诊断/测试用）。</summary>
     public int BurstCount { get; private set; }
 
@@ -61,12 +64,20 @@ public sealed class SparkEffect : IEffect
     private Point _prevPosition;   // 上一帧鼠标位置（算鼠标速度）
     private bool _hasMouse;
 
+    // 输入断流：管理员窗口前台时 UIPI 使钩子收不到事件，停止发射，
+    // 存量火星自然烧尽（≤0.9s），避免对着冻住的位置持续喷火花
+    private static readonly TimeSpan StallBeforeStop = TimeSpan.FromSeconds(2);
+    private TimeSpan _timeSinceInput;
+
+    /// <summary>输入是否处于断流状态（测试/诊断用）。</summary>
+    public bool InputStalled => _timeSinceInput > StallBeforeStop;
+
     public SparkEffect(Random? random = null) => _random = random ?? new Random();
 
     /// <summary>当前存活的火星（测试/诊断用）。</summary>
     public IReadOnlyList<Spark> ActiveSparks => _sparks;
 
-    public void OnMouseDown(Point position) { }
+    public void OnMouseDown(Point position) => _timeSinceInput = TimeSpan.Zero;
 
     public void OnMouseMove(Point position)
     {
@@ -76,6 +87,7 @@ public sealed class SparkEffect : IEffect
             _hasMouse = true;
         }
         _emitPosition = position;
+        _timeSinceInput = TimeSpan.Zero;
     }
 
     public void Update(TimeSpan delta)
@@ -83,6 +95,7 @@ public sealed class SparkEffect : IEffect
         if (!Enabled) return;
         double dt = Math.Clamp(delta.TotalSeconds, 0, 0.1);
         if (dt <= 0) return;
+        _timeSinceInput += delta;
 
         // 鼠标速度（px/s）＝本帧位移 / 帧间隔；无移动事件时自然衰减为 0（静止发射）
         double mouseVX = (_emitPosition.X - _prevPosition.X) / dt;
@@ -90,8 +103,8 @@ public sealed class SparkEffect : IEffect
         _prevPosition = _emitPosition;
         bool moving = Math.Sqrt(mouseVX * mouseVX + mouseVY * mouseVY) > MovingSpeedThreshold;
 
-        // 每帧发射 1~3 颗，静止时频率略降低（1~2 颗）
-        if (_hasMouse)
+        // 每帧发射 1~3 颗，静止时频率略降低（1~2 颗）；断流时停发（IdleFade 开启时），存量自然烧尽
+        if (_hasMouse && !(IdleFade && InputStalled))
         {
             int count = moving ? _random.Next(1, 4) : _random.Next(1, 3);
             for (int i = 0; i < count; i++)
