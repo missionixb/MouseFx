@@ -16,8 +16,7 @@ public class RippleEffectTests
     [Theory]
     [InlineData(RippleShape.Circle)]
     [InlineData(RippleShape.Heart)]
-    [InlineData(RippleShape.Clover)]
-    [InlineData(RippleShape.Note)]
+    [InlineData(RippleShape.Star)]
     public void 每种形状几何都有正尺寸(RippleShape shape)
     {
         var g = RippleShapes.For(shape);

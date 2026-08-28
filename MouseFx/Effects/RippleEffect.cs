@@ -26,7 +26,7 @@ public sealed class RippleEffect : IEffect
     /// <summary>主题色色相（0-360）。</summary>
     public double Hue { get; set; } = 210;
 
-    /// <summary>波纹扩散形状（圆圈/爱心/四叶草/音符）。</summary>
+    /// <summary>波纹扩散形状（圆圈/爱心/星星）。</summary>
     public RippleShape Shape { get; set; } = RippleShape.Circle;
 
     private Brush? _fill;
@@ -68,15 +68,25 @@ public sealed class RippleEffect : IEffect
     public void Draw(DrawingContext dc)
     {
         var fill = GetFillBrush();
-        var pen = GetPen();
-        var shape = RippleShapes.For(Shape);
+        var shape = RippleShapes.For(Shape); // 循环不变，取一次即可
+        var pen = Shape == RippleShape.Circle ? GetPen() : null; // 仅圆圈走描边
         foreach (var ripple in _ripples)
         {
             // 透明度交给 PushOpacity 分层，画刷/画笔保持不透明，可整体缓存 + Freeze
             dc.PushOpacity(ripple.Opacity);
-            dc.PushTransform(CreateTransform(ripple)); // 形状几何按波纹半径缩放并平移到位置
-            dc.DrawGeometry(fill, pen, shape);
-            dc.Pop();
+            if (Shape == RippleShape.Circle)
+            {
+                // 圆圈走 DrawEllipse 原路（main 版）：圆心+半径直传，渐变/描边观感与主分支完全一致
+                dc.DrawEllipse(fill, pen, ripple.Position, ripple.Radius, ripple.Radius);
+            }
+            else
+            {
+                // 非圆形状走几何路径：单位几何按波纹半径缩放并平移到位置。
+                // 仅填充不描边——描边笔宽会被缩放变换放大成 2×半径 px，把形状糊胖
+                dc.PushTransform(CreateTransform(ripple));
+                dc.DrawGeometry(fill, null, shape);
+                dc.Pop();
+            }
             dc.Pop();
         }
     }

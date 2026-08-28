@@ -5,8 +5,7 @@ public enum RippleShape
 {
     Circle,
     Heart,
-    Clover,
-    Note,
+    Star,
 }
 
 /// <summary>用户可配置参数（可序列化，全部带默认值）。</summary>

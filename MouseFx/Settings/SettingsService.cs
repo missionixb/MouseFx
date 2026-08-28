@@ -7,11 +7,11 @@ namespace MouseFx.Settings;
 /// <summary>设置持久化：JSON 文件存取。任何异常都不抛出（保持程序可用）。</summary>
 public sealed class SettingsService
 {
-    /// <summary>读写共用配置：缩进 + 枚举存字符串（设置文件可读）。</summary>
+    /// <summary>读写共用配置：缩进 + 枚举存字符串（设置文件可读）；形状用容错转换器兼容历史遗留名。</summary>
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
-        Converters = { new JsonStringEnumConverter() },
+        Converters = { new RippleShapeJsonConverter() }, // 项目唯一枚举，容错转换器全权接管
     };
 
     private readonly string _filePath;

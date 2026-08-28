@@ -33,7 +33,7 @@ public class SettingsServiceTests
                 GlowRadius = 40,
                 GlowOpacity = 0.8,
                 RippleRadius = 100,
-                RippleShape = RippleShape.Note,
+                RippleShape = RippleShape.Star,
                 FollowSpeed = 80,
             };
             service.Save(s);
@@ -43,7 +43,7 @@ public class SettingsServiceTests
             Assert.Equal(40, loaded.GlowRadius);
             Assert.Equal(0.8, loaded.GlowOpacity, 3);
             Assert.Equal(100, loaded.RippleRadius);
-            Assert.Equal(RippleShape.Note, loaded.RippleShape);
+            Assert.Equal(RippleShape.Star, loaded.RippleShape);
             Assert.Equal(80, loaded.FollowSpeed);
         }
         finally
@@ -63,6 +63,26 @@ public class SettingsServiceTests
             var s = service.Load();
 
             Assert.Equal(210, s.Hue); // 解析失败 → 默认值
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void 含已删除形状名的旧设置文件形状回退圆圈且其余设置保留()
+    {
+        var path = TempPath();
+        try
+        {
+            // 旧版本写入的 Note/Clover 在新枚举中已不存在
+            File.WriteAllText(path, "{ \"Hue\": 120, \"GlowRadius\": 40, \"RippleShape\": \"Note\" }");
+            var s = new SettingsService(path).Load();
+
+            Assert.Equal(RippleShape.Circle, s.RippleShape); // 未知形状 → 圆圈
+            Assert.Equal(120, s.Hue);                        // 其余设置不受影响
+            Assert.Equal(40, s.GlowRadius);
         }
         finally
         {

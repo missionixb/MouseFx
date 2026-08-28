@@ -81,8 +81,7 @@
                       VerticalAlignment="Center">
                 <ComboBoxItem Content="圆圈"/>
                 <ComboBoxItem Content="爱心"/>
-                <ComboBoxItem Content="四叶草"/>
-                <ComboBoxItem Content="音符"/>
+                <ComboBoxItem Content="星星"/>
             </ComboBox>
         </Grid>
 
