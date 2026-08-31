@@ -220,6 +220,18 @@
                         <TextBlock x:Name="SparkLifeValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
                     </Grid>
 
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="点击爆裂" Style="{StaticResource RowLabel}"/>
+                            <TextBlock Text="左键点击时炸开一团火星" Style="{StaticResource Secondary}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                        <ui:ToggleSwitch x:Name="SparkBurstToggle" Grid.Column="1" VerticalAlignment="Center"/>
+                    </Grid>
+
                     <ui:Button x:Name="SparkResetButton" Content="恢复默认" Appearance="Secondary"
                                HorizontalAlignment="Right" Margin="0,14,0,0"/>
                 </StackPanel>
@@ -249,8 +261,20 @@
                             <ColumnDefinition Width="64"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="星芒直径" Style="{StaticResource RowLabel}"/>
-                        <Slider x:Name="SparklerSizeSlider" Grid.Column="1" Minimum="80" Maximum="500" IsMoveToPointEnabled="True"/>
+                        <Slider x:Name="SparklerSizeSlider" Grid.Column="1" Minimum="30" Maximum="300" IsMoveToPointEnabled="True"/>
                         <TextBlock x:Name="SparklerSizeValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
+                    </Grid>
+
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="点击爆裂" Style="{StaticResource RowLabel}"/>
+                            <TextBlock Text="左键点击时星芒炸开一圈" Style="{StaticResource Secondary}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                        <ui:ToggleSwitch x:Name="SparklerBurstToggle" Grid.Column="1" VerticalAlignment="Center"/>
                     </Grid>
 
                     <ui:Button x:Name="SparklerResetButton" Content="恢复默认" Appearance="Secondary"

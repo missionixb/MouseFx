@@ -67,8 +67,14 @@ public sealed class AppSettings
     /// <summary>烟花粒子上限（颗，100~800），超出回收最早发射的。</summary>
     public int SparklerCount { get; set; } = 200;
 
-    /// <summary>烟花星芒直径（px，80~500），火星初速与线长随之缩放。</summary>
-    public double SparklerSize { get; set; } = 150;
+    /// <summary>烟花星芒直径（px，30~300），火星初速与线长随之缩放。</summary>
+    public double SparklerSize { get; set; } = 80;
+
+    /// <summary>火屑：左键点击时爆发一团火星（默认开；旧配置文件缺字段时保持默认）。</summary>
+    public bool SparkClickBurst { get; set; } = true;
+
+    /// <summary>烟花：左键点击时爆发一圈星芒（默认开；旧配置文件缺字段时保持默认）。</summary>
+    public bool SparklerClickBurst { get; set; } = true;
 
     /// <summary>光晕跟随指数系数 k（/s），越大越跟手。</summary>
     public double FollowSpeed { get; set; } = 50;

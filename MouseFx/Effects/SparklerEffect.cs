@@ -18,6 +18,8 @@ public struct SparklerParticle
     public int Layer;              // 球面纵深层：0=中心层（慢速、亮、粗），2=外层（快速、暗、细）
     public double FlickerPhase;    // 闪烁初相（rad）
     public double FlickerFreq;     // 闪烁角频率（rad/s）
+    public bool IsBurst;           // 左键点击爆发的粒子（强阻力两段式运动，先于常态粒子被回收）
+    public double Boost;           // 亮度相对常态的放大系数（常态 1.0，爆发 1.5~2.0）
 }
 
 /// <summary>
@@ -37,6 +39,13 @@ public sealed class SparklerEffect : IEffect
     /// <summary>重力加速度（px/s²）——极弱，轨迹近似直线放射。</summary>
     public const double Gravity = 40;
 
+    /// <summary>
+    /// 爆发粒子的重力（px/s²）：常态重力 40 配强阻力（DragK=11）终端落速仅 3.6 px/s，
+    /// 视觉上悬停在半空。爆发粒子用此重力，终端落速 ≈ 36 px/s——最高点趋停一瞬后
+    /// 即可见加速下坠，飘落渐隐。
+    /// </summary>
+    public const double BurstGravity = 400;
+
     /// <summary>空气阻力系数（/s），速度按 e^(-Drag·dt) 轻微减速。</summary>
     public const double Drag = 1.5;
 
@@ -50,6 +59,14 @@ public sealed class SparklerEffect : IEffect
     private const int Layers = 3;            // 球面纵深层数
     private const int SegBright = 0;         // 亮线分段：头侧亮段
     private const int SegDim = 1;            // 亮线分段：尾侧暗段
+
+    /// <summary>点击爆发初速（px/s，绝对值不随 Size 缩放）：强阻力下射程 ≈ v0/DragK，
+    /// 峰值直径约为星芒直径（100px）的 2.5~3 倍，明显超出常态轮廓。</summary>
+    public const double BurstSpeedMin = 1200;
+    public const double BurstSpeedMax = 1600;
+
+    /// <summary>爆发窗口（秒）：点击后常态发射暂停，爆炸成为唯一焦点，窗口结束无痕恢复。</summary>
+    public const double BurstWindowSeconds = 0.35;
     private static readonly double[] LayerAlpha = { 1.25, 1.0, 0.78 }; // 中心层更亮
     private static readonly double[] LayerWidth = { 1.8, 1.55, 1.25 }; // 中心层更粗
 
@@ -73,10 +90,25 @@ public sealed class SparklerEffect : IEffect
     public int PoolLimit { get; set; } = 200;
 
     /// <summary>星芒直径（px），火星初速与线长按 Size/BaseSize 缩放。</summary>
-    public double Size { get; set; } = 150;
+    public double Size { get; set; } = 80;
+
+    /// <summary>左键点击时是否爆发一圈星芒（设置项，默认开；移动过程不触发）。</summary>
+    public bool ClickBurstEnabled { get; set; } = true;
+
+    /// <summary>爆发密度系数（1 = 全量 40~80 颗）；软件渲染降级时调低。</summary>
+    public double BurstScale { get; set; } = 1.0;
+
+    /// <summary>爆发预留池容量：常态粒子上限之外为爆炸额外预留。</summary>
+    public int BurstReserve { get; set; } = 100;
 
     /// <summary>已发生的末端分叉次数（诊断/测试用）。</summary>
     public int ForkCount { get; private set; }
+
+    /// <summary>累计爆发的粒子总数（诊断/测试用）。</summary>
+    public int ClickBurstTotal { get; private set; }
+
+    /// <summary>中心白核闪光剩余时间（秒，0 = 无闪光。测试/诊断用）。</summary>
+    public double FlashRemaining => _flashRemaining;
 
     /// <summary>累计发射的火星总数（诊断/测试用）。</summary>
     public int EmittedTotal { get; private set; }
@@ -90,6 +122,15 @@ public sealed class SparklerEffect : IEffect
     private Point _pos;          // 鼠标当前位置（发射中心）
     private bool _hasMouse;
     private double _corePhase;   // 中心光核脉动相位
+
+    // 点击爆发的中心白核闪光（~100ms 过曝，之后恢复常态脉动）
+    private double _flashRemaining;
+
+    // 爆发窗口剩余时间：窗口内常态发射暂停，爆炸是唯一焦点，结束无痕恢复
+    private double _burstWindow;
+
+    /// <summary>爆发窗口剩余时间（秒，0 = 常态发射中。测试/诊断用）。</summary>
+    public double BurstWindowRemaining => _burstWindow;
 
     // 输入断流：管理员窗口前台 / 鼠标静止（IdleFade 开启时）→ 停发，存量火星自然烧尽
     private static readonly TimeSpan StallBeforeStop = TimeSpan.FromSeconds(2);
@@ -108,7 +149,41 @@ public sealed class SparklerEffect : IEffect
 
     public SparklerEffect(Random? random = null) => _random = random ?? new Random();
 
-    public void OnMouseDown(Point position) => _timeSinceInput = TimeSpan.Zero;
+    public void OnMouseDown(Point position)
+    {
+        _timeSinceInput = TimeSpan.Zero;
+        RadialImpulse(position); // 点击语义：画面里已有的粒子先被炸飞
+        if (!ClickBurstEnabled) return;
+
+        _burstWindow = BurstWindowSeconds;
+        // 星芒轮廓瞬间扩大一圈：以点击点为中心 360° 炸开爆发粒子（金色针状亮线 + 白热头），
+        // 中心白核闪白 ~100ms 后恢复常态脉动。
+        // 初速不乘 Size 缩放（修复：乘 k=Size/300 后射程仅 ~30~50px，比常态星芒还小）——
+        // 强阻力下射程 ≈ v0/DragK，1200~1600 px/s → 峰值直径约星芒直径（100px）的 2.5~3 倍。
+        _flashRemaining = ClickBurst.FlashDuration.TotalSeconds;
+        int count = ClickBurst.RandomCount(_random, BurstScale);
+        for (int i = 0; i < count; i++)
+        {
+            double angle = _random.NextDouble() * Math.PI * 2;
+            double speed = BurstSpeedMin + _random.NextDouble() * (BurstSpeedMax - BurstSpeedMin);
+            Add(new SparklerParticle
+            {
+                X = position.X + (_random.NextDouble() - 0.5) * 2,
+                Y = position.Y + (_random.NextDouble() - 0.5) * 2,
+                VX = Math.Cos(angle) * speed,
+                VY = Math.Sin(angle) * speed,
+                Life = ClickBurst.MinLife + _random.NextDouble() * (ClickBurst.MaxLife - ClickBurst.MinLife),
+                RenderLength = 25 + _random.NextDouble() * 45,            // 25~70px，比常态更长
+                ColorTier = 3 + _random.Next(3),                          // 偏亮的金琥珀档（3~5）
+                Layer = _random.Next(2),                                  // 中心/中层（亮、粗）
+                FlickerPhase = _random.NextDouble() * Math.PI * 2,
+                FlickerFreq = 10 + _random.NextDouble() * 15,
+                IsBurst = true,
+                Boost = 1.5 + _random.NextDouble() * 0.5,
+            });
+            ClickBurstTotal++;
+        }
+    }
 
     public void OnMouseMove(Point position)
     {
@@ -124,14 +199,17 @@ public sealed class SparklerEffect : IEffect
         if (dt <= 0) return;
         _timeSinceInput += delta;
         _corePhase += dt;
+        _flashRemaining = Math.Max(0, _flashRemaining - delta.TotalSeconds);
+        _burstWindow = Math.Max(0, _burstWindow - delta.TotalSeconds);
         bool stalled = IdleFade && InputStalled;
 
         // 中心光核淡出（断流时 0.5s 线性淡出，恢复立即回 1）
         double coreStall = _timeSinceInput.TotalSeconds - StallBeforeStop.TotalSeconds;
         _coreFade = !IdleFade || coreStall <= 0 ? 1 : Math.Max(0, 1 - coreStall / CoreFadeSeconds);
 
-        // 高密度连续发射：每帧 3~6 颗，与移动/静止无关，星芒轮廓始终饱满
-        if (_hasMouse && !stalled)
+        // 高密度连续发射：每帧 3~6 颗，与移动/静止无关，星芒轮廓始终饱满；
+        // 爆发窗口内暂停，让爆炸成为唯一焦点，窗口结束无痕恢复
+        if (_hasMouse && !stalled && _burstWindow <= 0)
         {
             int count = EmitMinPerFrame + _random.Next(EmitMaxPerFrame - EmitMinPerFrame + 1);
             for (int i = 0; i < count; i++)
@@ -149,22 +227,39 @@ public sealed class SparklerEffect : IEffect
                 else _sparks.RemoveAt(i);
                 continue;
             }
-            Advance(ref s, dt);
+            Advance(ref s, dt,
+                s.IsBurst ? ClickBurst.DragK : Drag,
+                s.IsBurst ? BurstGravity : Gravity);
             _sparks[i] = s;
         }
     }
 
     /// <summary>
     /// 推进一颗火星的物理（纯函数，可测）：空气阻力指数衰减 + 极弱重力 + 位移积分。
+    /// 带阻力系数重载：爆发粒子用强阻力（ClickBurst.DragK）实现两段式运动。
     /// </summary>
     public static void Advance(ref SparklerParticle s, double dt)
+        => Advance(ref s, dt, Drag, Gravity);
+
+    public static void Advance(ref SparklerParticle s, double dt, double dragK)
+        => Advance(ref s, dt, dragK, Gravity);
+
+    /// <summary>阻力 + 重力 + 位移积分（帧率无关的指数衰减；重力全程生效）。</summary>
+    public static void Advance(ref SparklerParticle s, double dt, double dragK, double gravity)
     {
-        double decay = Math.Exp(-Drag * dt);
+        double decay = Math.Exp(-dragK * dt);
         s.VX *= decay;
-        s.VY = s.VY * decay + Gravity * dt;
+        s.VY = s.VY * decay + gravity * dt;
         s.X += s.VX * dt;
         s.Y += s.VY * dt;
     }
+
+    /// <summary>
+    /// 爆发粒子拖尾长度随速度缩放（纯函数，可测）：≥120px/s 满长，
+    /// 速度趋零拖尾自然消失——不允许出现固定朝上的"指针"。
+    /// </summary>
+    public static double BurstTrailScale(double speed)
+        => Math.Clamp(speed / 120.0, 0, 1);
 
     public void Draw(DrawingContext dc)
     {
@@ -180,6 +275,12 @@ public sealed class SparklerEffect : IEffect
             dc.DrawEllipse(GlowBrush, null, corePos, coreR * 2.2, coreR * 2.2);
             dc.DrawEllipse(CoreBrush, null, corePos, coreR, coreR);
             if (_coreFade < 1) dc.Pop();
+
+            // 点击爆发的中心闪光：白核瞬间过曝涨大，100ms 内淡出后恢复常态脉动
+            if (_flashRemaining > 0)
+            {
+                ClickBurst.DrawFlash(dc, corePos, _flashRemaining / ClickBurst.FlashDuration.TotalSeconds);
+            }
         }
 
         if (_sparks.Count == 0) return;
@@ -187,17 +288,29 @@ public sealed class SparklerEffect : IEffect
         {
             double t = s.Age / s.Life;
             double flicker = 0.85 + 0.15 * Math.Sin(s.FlickerPhase + s.Age * s.FlickerFreq);
-            // 球面纵深：中心层更亮，外层更暗
-            double alpha = Math.Clamp((1 - t) * flicker * LayerAlpha[s.Layer], 0, 1);
+            // 球面纵深：中心层更亮，外层更暗；爆发粒子按 Boost 提亮（Boost 默认 0 视作常态）
+            double boost = s.Boost <= 0 ? 1.0 : s.Boost;
+            double alpha = Math.Clamp((1 - t) * flicker * LayerAlpha[s.Layer] * Math.Min(1.35, boost), 0, 1);
             int bucket = Math.Min(AlphaBuckets - 1, (int)(alpha * AlphaBuckets));
 
-            // 亮线方向：沿速度方向；速度≈0 时朝上
+            // 亮线方向：沿速度方向。爆发粒子速度趋零时拖尾自然消失（BurstTrailScale），
+            // 不允许出现固定朝上的"指针"；常态粒子保留朝上兜底（速度≈0 仅是理论防御）
             double speed = Math.Sqrt(s.VX * s.VX + s.VY * s.VY);
             double ux, uy;
-            if (speed < 1) { ux = 0; uy = -1; speed = 1; }
-            else { ux = s.VX / speed; uy = s.VY / speed; }
+            if (speed < 1)
+            {
+                if (s.IsBurst) continue;
+                ux = 0; uy = -1; speed = 1;
+            }
+            else
+            {
+                ux = s.VX / speed;
+                uy = s.VY / speed;
+            }
             var head = new Point(s.X, s.Y);
-            var tail = new Point(s.X - ux * s.RenderLength, s.Y - uy * s.RenderLength);
+            double trailLen = s.IsBurst ? s.RenderLength * BurstTrailScale(speed) : s.RenderLength;
+            if (trailLen < 1.5) continue; // 拖尾随速度缩短至消失
+            var tail = new Point(s.X - ux * trailLen, s.Y - uy * trailLen);
 
             if (s.IsChild)
             {
@@ -207,7 +320,7 @@ public sealed class SparklerEffect : IEffect
             }
 
             // 母亮线：分两段近似"由亮渐暗"——头侧亮段 + 尾侧暗段
-            var mid = new Point(s.X - ux * s.RenderLength * 0.45, s.Y - uy * s.RenderLength * 0.45);
+            var mid = new Point(s.X - ux * trailLen * 0.45, s.Y - uy * trailLen * 0.45);
             int dimBucket = Math.Max(0, bucket * 45 / 100);
             dc.DrawLine(GetLinePen(s.ColorTier, SegBright, bucket, s.Layer), head, mid);
             dc.DrawLine(GetLinePen(s.ColorTier, SegDim, dimBucket, s.Layer), mid, tail);
@@ -216,6 +329,37 @@ public sealed class SparklerEffect : IEffect
             int headBucket = Math.Min(AlphaBuckets - 1, (int)(Math.Min(1, alpha * 1.4) * AlphaBuckets));
             var headTip = new Point(s.X - ux * 1.5, s.Y - uy * 1.5);
             dc.DrawLine(GetHeadPen(headBucket), head, headTip);
+        }
+    }
+
+    /// <summary>
+    /// 对当前所有存活粒子施加以点击点为中心的向外径向冲量（方向 = 粒子相对点击点的方向），
+    /// 让画面里的粒子被炸散，而不是只有凭空新增的爆炸粒子在动。
+    /// </summary>
+    private void RadialImpulse(Point center)
+    {
+        for (int i = 0; i < _sparks.Count; i++)
+        {
+            var s = _sparks[i];
+            double dx = s.X - center.X;
+            double dy = s.Y - center.Y;
+            double dist = Math.Sqrt(dx * dx + dy * dy);
+            double ux, uy;
+            if (dist < 1)
+            {
+                double a = _random.NextDouble() * Math.PI * 2; // 恰在点击点上：随机方向
+                ux = Math.Cos(a);
+                uy = Math.Sin(a);
+            }
+            else
+            {
+                ux = dx / dist;
+                uy = dy / dist;
+            }
+            double impulse = 300 + _random.NextDouble() * 300; // 300~600 px/s 径向冲量
+            s.VX += ux * impulse;
+            s.VY += uy * impulse;
+            _sparks[i] = s;
         }
     }
 
@@ -278,7 +422,13 @@ public sealed class SparklerEffect : IEffect
 
     private void Add(SparklerParticle spark)
     {
-        if (_sparks.Count >= PoolLimit) _sparks.RemoveAt(0); // 池满回收最早发射的
+        // 池容量 = 常态上限 + 爆发预留；超额时先回收最老的爆炸粒子，常态粒子不被爆炸挤掉
+        int capacity = PoolLimit + BurstReserve;
+        if (_sparks.Count >= capacity)
+        {
+            int evict = _sparks.FindIndex(s => s.IsBurst);
+            _sparks.RemoveAt(evict < 0 ? 0 : evict);
+        }
         _sparks.Add(spark);
     }
 

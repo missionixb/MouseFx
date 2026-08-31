@@ -167,7 +167,7 @@ public class SparklerEffectTests
     [Fact]
     public void 池满时不再增长()
     {
-        var effect = new SparklerEffect(new Random(99)) { Enabled = true };
+        var effect = new SparklerEffect(new Random(99)) { Enabled = true, BurstReserve = 0 };
         effect.PoolLimit = 10;
         effect.OnMouseMove(new Point(0, 0));
 
@@ -209,5 +209,162 @@ public class SparklerEffectTests
         Assert.True(effect.InputStalled);
         Assert.NotEmpty(effect.ActiveParticles); // 仍在发射
         Assert.Equal(1, effect.CoreFade);        // 光核常亮
+    }
+
+    [Fact]
+    public void 左键点击爆发星芒且峰值范围明显大于常态()
+    {
+        var effect = new SparklerEffect(new Random(7)) { Enabled = true };
+        effect.OnMouseMove(new Point(0, 0));
+        effect.OnMouseDown(new Point(500, 400)); // 爆发在按下瞬间直接入池（先于 Update，未经阻力衰减）
+
+        var burst = effect.ActiveParticles.Where(s => s.IsBurst).ToList();
+        Assert.InRange(burst.Count, 40, 80);
+        Assert.All(burst, s =>
+        {
+            var speed = Math.Sqrt(s.VX * s.VX + s.VY * s.VY);
+            Assert.InRange(speed, SparklerEffect.BurstSpeedMin, SparklerEffect.BurstSpeedMax + 1e-9); // 绝对初速，不随 Size 缩小
+            Assert.InRange(s.Life, ClickBurst.MinLife, ClickBurst.MaxLife); // 比常态(0.3~0.6)更长
+            Assert.InRange(s.ColorTier, 3, 5);                              // 偏亮金琥珀档，颜色仍固定
+            Assert.InRange(s.RenderLength, 25, 70);                         // 比常态更长的针状亮线
+        });
+
+        // 强阻力下射程 ≈ v0/DragK：峰值半径约 110~145px，直径 ≈ 常态星芒（100px）的 2.5~3 倍
+        double peakRadius = SparklerEffect.BurstSpeedMax / ClickBurst.DragK;
+        Assert.True(peakRadius * 2 > effect.Size * 2.4, "爆炸峰值直径必须明显超出常态星芒轮廓");
+    }
+
+    [Fact]
+    public void 点击瞬间原有粒子被施加向外径向冲量()
+    {
+        var effect = new SparklerEffect(new Random(9)) { Enabled = true };
+        effect.OnMouseMove(new Point(0, 0));
+        effect.Update(Frame()); // 先有常态火星（位于 0,0 附近，即点击点左侧）
+        var before = effect.ActiveParticles[0];
+
+        effect.OnMouseDown(new Point(200, 0));
+        var after = effect.ActiveParticles[0];
+
+        Assert.True(after.VX < before.VX); // 被推离点击点（向 -X）
+    }
+
+    [Fact]
+    public void 爆发窗口内常态发射暂停_窗口结束无痕恢复()
+    {
+        var effect = new SparklerEffect(new Random(13)) { Enabled = true };
+        effect.OnMouseMove(new Point(0, 0));
+        effect.OnMouseDown(new Point(0, 0));
+        Assert.InRange(effect.BurstWindowRemaining, 0.3, 0.36);
+        Assert.Equal(0, effect.ActiveParticles.Count(s => !s.IsBurst)); // 点击前无常态粒子
+
+        for (int i = 0; i < 15; i++) // 窗口内 ~0.24s：无新增常态粒子
+            effect.Update(Frame());
+        Assert.Equal(0, effect.ActiveParticles.Count(s => !s.IsBurst));
+
+        effect.Update(TimeSpan.FromSeconds(0.4)); // 窗口结束
+        Assert.Equal(0, effect.BurstWindowRemaining);
+        Assert.True(effect.ActiveParticles.Count(s => !s.IsBurst) > 0); // 常态发射恢复
+    }
+
+    [Fact]
+    public void 鼠标移动不触发星芒爆发()
+    {
+        var effect = new SparklerEffect(new Random(2026)) { Enabled = true };
+        effect.OnMouseMove(new Point(0, 0));
+        effect.Update(Frame());
+        effect.OnMouseMove(new Point(300, 0));
+        effect.Update(Frame());
+
+        Assert.DoesNotContain(effect.ActiveParticles, s => s.IsBurst);
+    }
+
+    [Fact]
+    public void 关闭点击爆裂后点击无爆发无闪光()
+    {
+        var effect = new SparklerEffect(new Random(3)) { Enabled = true, ClickBurstEnabled = false };
+        effect.OnMouseDown(new Point(10, 10));
+        effect.Update(Frame());
+
+        Assert.DoesNotContain(effect.ActiveParticles, s => s.IsBurst);
+        Assert.Equal(0, effect.ClickBurstTotal);
+        Assert.Equal(0, effect.FlashRemaining);
+    }
+
+    [Fact]
+    public void 爆发粒子强阻力衰减帧率无关()
+    {
+        // 指数衰减可分性：一次 0.2s 与两次 0.1s 末速一致（用强阻力系数）
+        var a = new SparklerParticle { VX = 1200 };
+        SparklerEffect.Advance(ref a, 0.2, ClickBurst.DragK);
+        var b = new SparklerParticle { VX = 1200 };
+        SparklerEffect.Advance(ref b, 0.1, ClickBurst.DragK);
+        SparklerEffect.Advance(ref b, 0.1, ClickBurst.DragK);
+        Assert.Equal(a.VX, b.VX, 6);
+        Assert.True(a.VX < 1200 * 0.12); // 200ms 内速度衰减 ~89%
+    }
+
+    [Fact]
+    public void 爆发粒子全程受重力_减速后加速下坠不悬停()
+    {
+        // 悬停 bug 根因：常态重力 40 配强阻力终端落速仅 3.6px/s。
+        // 爆发粒子用 BurstGravity=400 → 终端落速 ≈ 400/11 ≈ 36px/s，可见下坠
+        var s = new SparklerParticle { VX = 1400, VY = 0, IsBurst = true };
+        double dt = 1 / 60.0;
+        for (int i = 0; i < 60; i++) // 1 秒：炸开 → 减速 → 最高点趋停 → 下坠
+            SparklerEffect.Advance(ref s, dt, ClickBurst.DragK, SparklerEffect.BurstGravity);
+
+        Assert.InRange(s.VY, 25, 50);            // 稳定向下坠（终端 ≈ 36px/s）
+        Assert.True(s.Y > 5, $"应已有向下位移，实际 Y={s.Y}");
+    }
+
+    [Fact]
+    public void 爆发粒子拖尾随速度缩短至消失()
+    {
+        Assert.Equal(0, SparklerEffect.BurstTrailScale(0));    // 速度趋零：拖尾消失
+        Assert.Equal(0.5, SparklerEffect.BurstTrailScale(60)); // 半速半长
+        Assert.Equal(1, SparklerEffect.BurstTrailScale(120));  // ≥120px/s 满长
+        Assert.Equal(1, SparklerEffect.BurstTrailScale(500));  // 高速不超长
+    }
+
+    [Fact]
+    public void 被冲量踹飞的粒子继续遵循阻力与重力物理()
+    {
+        // 表现 2 验证：冲量只是速度增量，之后照常受阻力与重力，不出现无物理的直线漂移
+        var s = new SparklerParticle { VX = 0, VY = 0, IsBurst = true };
+        s.VX -= 300; // 模拟被向左踹一脚（径向冲量）
+        double vxAfterImpulse = s.VX;
+
+        double dt = 1 / 60.0;
+        for (int i = 0; i < 60; i++)
+            SparklerEffect.Advance(ref s, dt, ClickBurst.DragK, SparklerEffect.BurstGravity);
+
+        Assert.True(s.VX > vxAfterImpulse);   // 阻力把冲量衰减掉（|VX| 收敛）
+        Assert.InRange(s.VY, 25, 50);         // 重力全程生效，照常下坠
+    }
+
+    [Fact]
+    public void 点击后中心闪光持续约100毫秒()
+    {
+        var effect = new SparklerEffect(new Random(1)) { Enabled = true };
+        effect.OnMouseMove(new Point(0, 0));
+        effect.OnMouseDown(new Point(0, 0));
+        Assert.InRange(effect.FlashRemaining, 0.09, 0.101);
+
+        effect.Update(TimeSpan.FromSeconds(0.15));
+        Assert.Equal(0, effect.FlashRemaining);
+    }
+
+    [Fact]
+    public void 连续快速点击池有界()
+    {
+        var effect = new SparklerEffect(new Random(11)) { Enabled = true, PoolLimit = 50 };
+        effect.OnMouseMove(new Point(0, 0));
+        for (int i = 0; i < 10; i++)
+        {
+            effect.OnMouseDown(new Point(i * 10, 0));
+            effect.Update(Frame());
+        }
+
+        Assert.InRange(effect.ActiveParticles.Count, 1, 50 + effect.BurstReserve);
     }
 }

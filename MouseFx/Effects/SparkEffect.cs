@@ -17,6 +17,8 @@ public struct Spark
     public double FlickerPhase;  // 闪烁初相（rad）
     public double FlickerFreq;   // 闪烁角频率（rad/s）
     public double StartSize;     // 初始线宽（决定大小档位，子火星更小）
+    public bool IsBurst;         // 左键点击爆发的粒子（强阻力两段式运动，先于常态粒子被回收）
+    public double Boost;         // 尺寸/亮度相对常态的放大系数（常态 1.0，爆发 1.5~2.0）
 }
 
 /// <summary>
@@ -52,8 +54,31 @@ public sealed class SparkEffect : IEffect
     /// <summary>鼠标静止（或输入断流）2 秒后是否停止发射。false = 静止时持续冒火星。</summary>
     public bool IdleFade { get; set; } = true;
 
+    /// <summary>左键点击时是否爆发一团火星（设置项，默认开；移动过程不触发）。</summary>
+    public bool ClickBurstEnabled { get; set; } = true;
+
+    /// <summary>
+    /// 爆发密度系数（1 = 全量 40~80 颗）；软件渲染降级时调低，避免 CPU 光栅化过载。
+    /// </summary>
+    public double BurstScale { get; set; } = 1.0;
+
+    /// <summary>爆发预留池容量：常态粒子上限之外为爆炸额外预留，避免爆炸瞬间频繁分配。</summary>
+    public int BurstReserve { get; set; } = 100;
+
+    /// <summary>爆发窗口（秒）：点击后常态发射暂停，爆炸成为唯一焦点，窗口结束无痕恢复。</summary>
+    public const double BurstWindowSeconds = 0.35;
+
+    /// <summary>爆发窗口剩余时间（秒，0 = 常态发射中。测试/诊断用）。</summary>
+    public double BurstWindowRemaining => _burstWindow;
+
     /// <summary>已发生的炸裂次数（诊断/测试用）。</summary>
     public int BurstCount { get; private set; }
+
+    /// <summary>累计爆发的粒子总数（诊断/测试用）。</summary>
+    public int ClickBurstTotal { get; private set; }
+
+    /// <summary>中心闪光剩余时间（秒，0 = 无闪光。测试/诊断用）。</summary>
+    public double FlashRemaining => _flashRemaining;
 
     private readonly Random _random;
     private readonly List<Spark> _sparks = new();
@@ -66,6 +91,13 @@ public sealed class SparkEffect : IEffect
     private Point _emitPosition;   // 最近一次鼠标位置（发射源）
     private Point _prevPosition;   // 上一帧鼠标位置（算鼠标速度）
     private bool _hasMouse;
+
+    // 点击爆发的中心闪光（~100ms 过曝白斑，两段式爆炸的第一视觉层级）
+    private Point _flashPoint;
+    private double _flashRemaining;
+
+    // 爆发窗口剩余时间：窗口内常态发射暂停，爆炸是唯一焦点，结束无痕恢复
+    private double _burstWindow;
 
     // 输入断流：管理员窗口前台时 UIPI 使钩子收不到事件，停止发射，
     // 存量火星自然烧尽（≤0.9s），避免对着冻住的位置持续喷火花
@@ -80,7 +112,46 @@ public sealed class SparkEffect : IEffect
     /// <summary>当前存活的火星（测试/诊断用）。</summary>
     public IReadOnlyList<Spark> ActiveSparks => _sparks;
 
-    public void OnMouseDown(Point position) => _timeSinceInput = TimeSpan.Zero;
+    public void OnMouseDown(Point position)
+    {
+        _timeSinceInput = TimeSpan.Zero;
+        RadialImpulse(position); // 点击语义：画面里已有的火星先被炸飞
+        if (!ClickBurstEnabled) return;
+
+        _burstWindow = BurstWindowSeconds;
+        SpawnClickBurst(position);
+    }
+
+    /// <summary>
+    /// 对当前所有存活火星施加以点击点为中心的向外径向冲量（方向 = 火星相对点击点的方向），
+    /// 让画面里的火星被炸散，而不是只有凭空新增的爆炸粒子在动。
+    /// </summary>
+    private void RadialImpulse(Point center)
+    {
+        for (int i = 0; i < _sparks.Count; i++)
+        {
+            var s = _sparks[i];
+            double dx = s.X - center.X;
+            double dy = s.Y - center.Y;
+            double dist = Math.Sqrt(dx * dx + dy * dy);
+            double ux, uy;
+            if (dist < 1)
+            {
+                double a = _random.NextDouble() * Math.PI * 2; // 恰在点击点上：随机方向
+                ux = Math.Cos(a);
+                uy = Math.Sin(a);
+            }
+            else
+            {
+                ux = dx / dist;
+                uy = dy / dist;
+            }
+            double impulse = 300 + _random.NextDouble() * 300; // 300~600 px/s 径向冲量
+            s.VX += ux * impulse;
+            s.VY += uy * impulse;
+            _sparks[i] = s;
+        }
+    }
 
     public void OnMouseMove(Point position)
     {
@@ -99,6 +170,8 @@ public sealed class SparkEffect : IEffect
         double dt = Math.Clamp(delta.TotalSeconds, 0, 0.1);
         if (dt <= 0) return;
         _timeSinceInput += delta;
+        _flashRemaining = Math.Max(0, _flashRemaining - delta.TotalSeconds);
+        _burstWindow = Math.Max(0, _burstWindow - delta.TotalSeconds);
 
         // 鼠标速度（px/s）＝本帧位移 / 帧间隔；无移动事件时自然衰减为 0（静止发射）
         double mouseVX = (_emitPosition.X - _prevPosition.X) / dt;
@@ -106,8 +179,9 @@ public sealed class SparkEffect : IEffect
         _prevPosition = _emitPosition;
         bool moving = Math.Sqrt(mouseVX * mouseVX + mouseVY * mouseVY) > MovingSpeedThreshold;
 
-        // 每帧发射 1~3 颗，静止时频率略降低（1~2 颗）；断流时停发（IdleFade 开启时），存量自然烧尽
-        if (_hasMouse && !(IdleFade && InputStalled))
+        // 每帧发射 1~3 颗，静止时频率略降低（1~2 颗）；断流时停发（IdleFade 开启时），存量自然烧尽；
+        // 爆发窗口内暂停，让爆炸成为唯一焦点，窗口结束无痕恢复
+        if (_hasMouse && _burstWindow <= 0 && !(IdleFade && InputStalled))
         {
             int count = moving ? _random.Next(1, 4) : _random.Next(1, 3);
             for (int i = 0; i < count; i++)
@@ -125,6 +199,13 @@ public sealed class SparkEffect : IEffect
                 _sparks.RemoveAt(i);
                 continue;
             }
+            if (s.IsBurst)
+            {
+                // 两段式第一段：强空气阻力指数衰减（帧率无关），200ms 内速度衰减 ~89%
+                double f = ClickBurst.DragFactor(dt);
+                s.VX *= f;
+                s.VY *= f;
+            }
             s.VY += Gravity * dt;          // 半隐式欧拉：先更新速度再积分位置，稳定
             s.X += s.VX * dt;
             s.Y += s.VY * dt;
@@ -132,10 +213,18 @@ public sealed class SparkEffect : IEffect
         }
     }
 
-    /// <summary>绘制：火星是沿速度方向拉长的短亮线段（拖尾），年轻火星外加淡色光晕。</summary>
+    /// <summary>绘制：中心闪光（如有）+ 火星沿速度方向的短亮线段（拖尾），年轻火星外加淡色光晕。</summary>
     public void Draw(DrawingContext dc)
     {
-        if (!Enabled || _sparks.Count == 0) return;
+        if (!Enabled) return;
+
+        // 点击爆发的中心闪光：唯一过曝元素，100ms 内快速扩大并淡出
+        if (_flashRemaining > 0)
+        {
+            ClickBurst.DrawFlash(dc, _flashPoint, _flashRemaining / ClickBurst.FlashDuration.TotalSeconds);
+        }
+
+        if (_sparks.Count == 0) return;
         if (_pensHue != Hue)
         {
             Array.Clear(_corePens);
@@ -149,7 +238,9 @@ public sealed class SparkEffect : IEffect
             int stage = Math.Min(StageCount - 1, (int)(t * StageCount));
             // 随机闪烁：透明度 0.65~1.0 抖动
             double flicker = 0.825 + 0.175 * Math.Sin(s.FlickerPhase + s.Age * s.FlickerFreq);
-            double alpha = Math.Clamp((1 - t) * flicker, 0, 1);
+            // 爆发粒子按 Boost 提亮（视觉层级第二级：爆发 > 常态）；Boost 默认 0 视作常态 1.0
+            double boost = s.Boost <= 0 ? 1.0 : s.Boost;
+            double alpha = Math.Clamp((1 - t) * flicker * Math.Min(1.35, boost), 0, 1);
             int bucket = Math.Min(AlphaBuckets - 1, (int)(alpha * AlphaBuckets));
             int tier = s.StartSize > 2.2 ? 1 : 0;
 
@@ -220,9 +311,47 @@ public sealed class SparkEffect : IEffect
         }
     }
 
+    /// <summary>
+    /// 左键点击爆发：以点击点为中心 360° 中心对称炸开 40~80 颗（× 密度系数）爆发粒子，
+    /// 初速 900~1600 px/s（常态的 2~3 倍）、尺寸亮度 1.5~2 倍、寿命 0.8~1.5s（两段式运动），
+    /// 同时点亮 ~100ms 中心闪光。常态发射不中断，爆炸是叠加层。
+    /// </summary>
+    private void SpawnClickBurst(Point center)
+    {
+        _flashPoint = center;
+        _flashRemaining = ClickBurst.FlashDuration.TotalSeconds;
+
+        int count = ClickBurst.RandomCount(_random, BurstScale);
+        for (int i = 0; i < count; i++)
+        {
+            double angle = _random.NextDouble() * Math.PI * 2;
+            double speed = ClickBurst.MinSpeed + _random.NextDouble() * (ClickBurst.MaxSpeed - ClickBurst.MinSpeed);
+            Add(new Spark
+            {
+                X = center.X + (_random.NextDouble() - 0.5) * 4,
+                Y = center.Y + (_random.NextDouble() - 0.5) * 4,
+                VX = Math.Cos(angle) * speed,
+                VY = Math.Sin(angle) * speed,
+                Life = ClickBurst.MinLife + _random.NextDouble() * (ClickBurst.MaxLife - ClickBurst.MinLife),
+                FlickerPhase = _random.NextDouble() * Math.PI * 2,
+                FlickerFreq = 15 + _random.NextDouble() * 20,
+                StartSize = (1.6 + _random.NextDouble() * 1.2) * ClickBurst.RandomBoost(_random),
+                IsBurst = true,
+                Boost = 1.5 + _random.NextDouble() * 0.5,
+            });
+            ClickBurstTotal++;
+        }
+    }
+
     private void Add(Spark spark)
     {
-        if (_sparks.Count >= PoolLimit) _sparks.RemoveAt(0);                // 池满回收最早发射的
+        // 池容量 = 常态上限 + 爆发预留；超额时先回收最老的爆炸粒子，常态粒子不被爆炸挤掉
+        int capacity = PoolLimit + BurstReserve;
+        if (_sparks.Count >= capacity)
+        {
+            int evict = _sparks.FindIndex(s => s.IsBurst);
+            _sparks.RemoveAt(evict < 0 ? 0 : evict);
+        }
         _sparks.Add(spark);
     }
 

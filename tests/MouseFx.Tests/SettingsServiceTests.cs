@@ -28,7 +28,9 @@ public class SettingsServiceTests
         Assert.Equal(250, s.SparkCount);
         Assert.Equal(0.9, s.SparkLife);     // 火花默认寿命 = 现状
         Assert.Equal(200, s.SparklerCount);
-        Assert.Equal(150, s.SparklerSize);
+        Assert.Equal(80, s.SparklerSize);
+        Assert.True(s.SparkClickBurst);     // 点击爆裂默认开
+        Assert.True(s.SparklerClickBurst);
     }
 
     [Fact]
@@ -56,6 +58,8 @@ public class SettingsServiceTests
                 SparkLife = 2.0,
                 SparklerCount = 300,
                 FollowSpeed = 80,
+                SparkClickBurst = false,
+                SparklerClickBurst = false,
             };
             service.Save(s);
 
@@ -76,6 +80,8 @@ public class SettingsServiceTests
             Assert.Equal(2.0, loaded.SparkLife);
             Assert.Equal(300, loaded.SparklerCount);
             Assert.Equal(80, loaded.FollowSpeed);
+            Assert.False(loaded.SparkClickBurst);       // 开关持久化
+            Assert.False(loaded.SparklerClickBurst);
         }
         finally
         {

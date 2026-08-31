@@ -39,6 +39,8 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
         SparkLifeSlider.Value = settings.SparkLife;
         SparklerCountSlider.Value = settings.SparklerCount;
         SparklerSizeSlider.Value = settings.SparklerSize;
+        SparkBurstToggle.IsChecked = settings.SparkClickBurst;
+        SparklerBurstToggle.IsChecked = settings.SparklerClickBurst;
         // 分段选择器：项由 EffectModeRegistry 驱动（新增模式自动出现），初始选中在 Loaded 后设置
         ModeSelector.ItemsSource = EffectModeRegistry.Modes;
         IdleFadeToggle.IsChecked = settings.IdleFade;
@@ -57,6 +59,18 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
         SparkLifeSlider.ValueChanged += (_, _) => ApplySparkAll();
         SparklerCountSlider.ValueChanged += (_, _) => ApplySparklerAll();
         SparklerSizeSlider.ValueChanged += (_, _) => ApplySparklerAll();
+        SparkBurstToggle.Click += (_, _) =>
+        {
+            _spark.ClickBurstEnabled = SparkBurstToggle.IsChecked == true;
+            _settings.SparkClickBurst = _spark.ClickBurstEnabled;
+            _service.Save(_settings);
+        };
+        SparklerBurstToggle.Click += (_, _) =>
+        {
+            _sparkler.ClickBurstEnabled = SparklerBurstToggle.IsChecked == true;
+            _settings.SparklerClickBurst = _sparkler.ClickBurstEnabled;
+            _service.Save(_settings);
+        };
         ClassicResetButton.Click += (_, _) =>
         {
             // 默认值取自 CreateDefault()（初版值：色相 210° 蓝、光圈 28px）；滑块赋值
