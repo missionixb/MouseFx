@@ -21,7 +21,7 @@ public struct SparklerParticle
 }
 
 /// <summary>
-/// 仙女棒特效（星芒/蒲公英形态）：手持仙女棒燃烧的照片质感。以鼠标位置为中心向四周
+/// 烟花特效（星芒/蒲公英形态）：手持烟花燃烧的照片质感。以鼠标位置为中心向四周
 /// 360° 高密度连续发射（每帧 3~6 颗，不做爆发—间歇），星芒轮廓始终饱满稳定；
 /// 球形立体感：火星速度按幂律分布（大量低速火星聚集中心、少量高速射向外围），
 /// 并按速度分三个纵深层——中心层更亮更粗、外层更暗更细，如同球形火花云投影到平面；
@@ -63,7 +63,7 @@ public sealed class SparklerEffect : IEffect
     private static readonly Brush GlowBrush = Freeze(new RadialGradientBrush(
         Color.FromArgb(120, 255, 255, 255), Color.FromArgb(0, 255, 255, 255)));
 
-    public string Name => "仙女棒";
+    public string Name => "烟花";
     public bool Enabled { get; set; }
 
     /// <summary>鼠标静止（或输入断流）2 秒后是否停止发射并淡出中心光核。false = 持续燃烧。</summary>

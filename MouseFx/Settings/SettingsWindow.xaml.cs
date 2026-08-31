@@ -39,7 +39,10 @@ public partial class SettingsWindow : Window
         SparkLifeSlider.Value = settings.SparkLife;
         SparklerCountSlider.Value = settings.SparklerCount;
         SparklerSizeSlider.Value = settings.SparklerSize;
-        EffectModeBox.SelectedIndex = (int)settings.EffectMode;
+        // 分段选择器（RadioButton 组）代替旧下拉框
+        ModeClassic.IsChecked = settings.EffectMode == EffectMode.Classic;
+        ModeSpark.IsChecked = settings.EffectMode == EffectMode.Spark;
+        ModeSparkler.IsChecked = settings.EffectMode == EffectMode.Sparkler;
         IdleFadeToggle.IsChecked = settings.IdleFade;
         FullscreenToggle.IsChecked = overlay.FadeOnFullscreen;
         AutoStartToggle.IsChecked = autoStart.IsEnabled;
@@ -81,8 +84,9 @@ public partial class SettingsWindow : Window
             SparklerCountSlider.Value = d.SparklerCount;
             SparklerSizeSlider.Value = d.SparklerSize;
         };
-        EffectModeBox.SelectionChanged += (_, _) =>
-            ApplyMode((EffectMode)EffectModeBox.SelectedIndex);
+        ModeClassic.Checked += (_, _) => ApplyMode(EffectMode.Classic);
+        ModeSpark.Checked += (_, _) => ApplyMode(EffectMode.Spark);
+        ModeSparkler.Checked += (_, _) => ApplyMode(EffectMode.Sparkler);
         IdleFadeToggle.Click += (_, _) =>
         {
             _glow.IdleFade = IdleFadeToggle.IsChecked == true;
@@ -105,6 +109,7 @@ public partial class SettingsWindow : Window
         ApplyAll();
         ApplySparkAll();
         ApplySparklerAll();
+        ApplyModeUi(_settings.EffectMode); // 初始模式说明文字与面板可见性
     }
 
     /// <summary>把滑块值同步到设置、特效并保存（改动即生效即保存）。</summary>
@@ -114,7 +119,8 @@ public partial class SettingsWindow : Window
         _settings.GlowRadius = RadiusSlider.Value;
         _settings.GlowOpacity = OpacitySlider.Value;
         _settings.RippleRadius = RippleSlider.Value;
-        _settings.RippleShape = (RippleShape)RippleShapeBox.SelectedIndex;
+        if (RippleShapeBox.SelectedIndex >= 0) // 防御：选项未就绪时不写入非法形状
+            _settings.RippleShape = (RippleShape)RippleShapeBox.SelectedIndex;
         _settings.FollowSpeed = SpeedSlider.Value;
 
         _glow.Hue = _settings.Hue;
@@ -137,7 +143,7 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// 切换特效模式：同一时刻只启用一种（经典组合 / 火花 / 仙女棒），
+    /// 切换特效模式：同一时刻只启用一种（光圈 / 火屑 / 烟花），
     /// 同步旧开关字段（旧版程序仍能正确读取）并保存。
     /// </summary>
     private void ApplyMode(EffectMode mode)
@@ -155,23 +161,23 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// 模式对应的界面状态：只显示当前模式的参数面板，窗口高度随之收缩，
-    /// 避免大片空白。
+    /// 模式对应的界面状态：只显示当前模式的参数卡片，并更新模式说明。
+    /// 窗口高度为 SizeToContent，随卡片显隐自动伸缩。
     /// </summary>
     private void ApplyModeUi(EffectMode mode)
     {
         ClassicPanel.Visibility = mode == EffectMode.Classic ? Visibility.Visible : Visibility.Collapsed;
         SparkPanel.Visibility = mode == EffectMode.Spark ? Visibility.Visible : Visibility.Collapsed;
         SparklerPanel.Visibility = mode == EffectMode.Sparkler ? Visibility.Visible : Visibility.Collapsed;
-        Height = mode switch
+        ModeDescription.Text = mode switch
         {
-            EffectMode.Classic => 571,
-            EffectMode.Spark => 425,
-            _ => 391,
+            EffectMode.Spark => "细小的火星沿轨迹迸落，带着重力下坠",
+            EffectMode.Sparkler => "星芒自光标向四周绽放，像手持烟花",
+            _ => "柔和光晕跟随光标，点击时荡开涟漪",
         };
     }
 
-    /// <summary>火花参数：独立颜色 + 粒子上限 + 生命，同步到设置与特效并保存。</summary>
+    /// <summary>火屑参数：独立颜色 + 粒子上限 + 生命，同步到设置与特效并保存。</summary>
     private void ApplySparkAll()
     {
         _settings.SparkHue = SparkHueSlider.Value;
@@ -189,7 +195,7 @@ public partial class SettingsWindow : Window
         _service.Save(_settings);
     }
 
-    /// <summary>仙女棒参数：粒子上限 + 星芒直径（颜色固定不可调），同步到设置与特效并保存。</summary>
+    /// <summary>烟花参数：粒子上限 + 星芒直径（颜色固定不可调），同步到设置与特效并保存。</summary>
     private void ApplySparklerAll()
     {
         _settings.SparklerCount = (int)Math.Round(SparklerCountSlider.Value);

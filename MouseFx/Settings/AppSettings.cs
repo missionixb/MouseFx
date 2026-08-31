@@ -13,9 +13,9 @@ public enum EffectMode
 {
     /// <summary>经典组合：常驻光晕 + 点击波纹。</summary>
     Classic,
-    /// <summary>火花：跟随鼠标运动方向的拖尾迸射，颜色可调。</summary>
+    /// <summary>火屑：跟随鼠标运动方向的拖尾迸射，颜色可调。</summary>
     Spark,
-    /// <summary>仙女棒：以鼠标为中心 360° 爆发，颜色固定。</summary>
+    /// <summary>烟花：以鼠标为中心 360° 爆发，颜色固定。</summary>
     Sparkler,
 }
 
@@ -49,25 +49,25 @@ public sealed class AppSettings
     /// <summary>旧版开关字段，同上。</summary>
     public bool SparkEnabled { get; set; }
 
-    /// <summary>鼠标静止（或输入断流）2 秒后特效是否淡出消失（持久化；作用于光晕/火花/仙女棒）。</summary>
+    /// <summary>鼠标静止（或输入断流）2 秒后特效是否淡出消失（持久化；作用于光圈/火屑/烟花）。</summary>
     public bool IdleFade { get; set; } = true;
 
     /// <summary>前台强制全屏（游戏）时特效是否自动淡出隐藏，退出全屏后恢复（持久化）。</summary>
     public bool HideOnFullscreen { get; set; } = true;
 
-    /// <summary>火花主色色相（0-360），与经典特效（光圈+点击）的颜色分开保存。默认橙金。</summary>
+    /// <summary>火屑主色色相（0-360），与光圈特效的颜色分开保存。默认橙金。</summary>
     public double SparkHue { get; set; } = 30;
 
-    /// <summary>火花粒子上限（颗，50~600），超出回收最早发射的。</summary>
+    /// <summary>火屑粒子上限（颗，50~600），超出回收最早发射的。</summary>
     public int SparkCount { get; set; } = 250;
 
-    /// <summary>火花最长寿命（秒，0.4~2.5）；实际寿命在 0.4 秒与该值之间随机。默认 0.9（现状）。</summary>
+    /// <summary>火屑最长寿命（秒，0.4~2.5）；实际寿命在 0.4 秒与该值之间随机。默认 0.9（现状）。</summary>
     public double SparkLife { get; set; } = 0.9;
 
-    /// <summary>仙女棒粒子上限（颗，100~800），超出回收最早发射的。</summary>
+    /// <summary>烟花粒子上限（颗，100~800），超出回收最早发射的。</summary>
     public int SparklerCount { get; set; } = 200;
 
-    /// <summary>仙女棒星芒直径（px，80~500），火星初速与线长随之缩放。</summary>
+    /// <summary>烟花星芒直径（px，80~500），火星初速与线长随之缩放。</summary>
     public double SparklerSize { get; set; } = 150;
 
     /// <summary>光晕跟随指数系数 k（/s），越大越跟手。</summary>

@@ -1,7 +1,5 @@
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Windows.Forms;
 // 注意：Color 已由全局别名指向 System.Windows.Media.Color，这里需要 Drawing 的 Color 时全限定
 
@@ -17,7 +15,7 @@ public sealed class TrayIcon : IDisposable
 
     public TrayIcon(Action openSettings)
     {
-        var settingsItem = new ToolStripMenuItem("设置…");
+        var settingsItem = new ToolStripMenuItem("设置");
         settingsItem.Click += (_, _) => openSettings();
 
         var menu = new ContextMenuStrip();
@@ -30,7 +28,7 @@ public sealed class TrayIcon : IDisposable
         _icon = new NotifyIcon
         {
             Icon = CreateIcon(),
-            Text = "鼠标特效",
+            Text = "萤火鼠",
             ContextMenuStrip = menu,
             Visible = true,
         };
@@ -50,25 +48,13 @@ public sealed class TrayIcon : IDisposable
             .Invoke(_icon, null);
     }
 
+    /// <summary>加载内嵌的应用图标（app.ico，随 csproj 以 Resource 打包）。</summary>
     private static Icon CreateIcon()
     {
-        using var bmp = new Bitmap(16, 16);
-        using (var g = Graphics.FromImage(bmp))
-        {
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            using var brush = new LinearGradientBrush(
-                new Rectangle(0, 0, 16, 16), System.Drawing.Color.SkyBlue, System.Drawing.Color.DodgerBlue, 45f);
-            g.FillEllipse(brush, 1, 1, 14, 14);
-        }
-        IntPtr hIcon = bmp.GetHicon();
-        using var temp = Icon.FromHandle(hIcon);
-        var icon = (Icon)temp.Clone();
-        DestroyIcon(hIcon);
-        return icon;
+        using var stream = System.Windows.Application.GetResourceStream(
+            new Uri("pack://application:,,,/app.ico")).Stream;
+        return new Icon(stream);
     }
-
-    [DllImport("user32.dll")]
-    private static extern bool DestroyIcon(IntPtr hIcon);
 
     public void Dispose()
     {

@@ -20,7 +20,7 @@ public struct Spark
 }
 
 /// <summary>
-/// 火花特效（仙女棒）：鼠标持续迸射细小、明亮的火星短线段，带重力抛物线、
+/// 火屑特效：鼠标持续迸射细小、明亮的火星短线段，带重力抛物线、
 /// 烧尽颜色渐变与随机闪烁，少数火星寿命终点炸裂成更小的子火星。
 /// 粒子用 List&lt;Spark&gt; 池管理（struct 无逐粒子堆分配），画笔按
 /// （大小档 × 烧尽色阶 × 亮度桶）惰性缓存 + Freeze，每帧绘制零分配。
@@ -37,7 +37,7 @@ public sealed class SparkEffect : IEffect
     private static readonly double[] StageThickness = { 2.4, 2.0, 1.7, 1.4, 1.1, 0.8 };
     private static readonly double[] TierScale = { 0.75, 1.3 };  // 大小档位线宽系数
 
-    public string Name => "火花";
+    public string Name => "火屑";
     public bool Enabled { get; set; }
 
     /// <summary>火星主色色相（0-360），复用主题色设置。</summary>

@@ -36,7 +36,7 @@ public sealed class SettingsService
             using var doc = JsonDocument.Parse(json);
             var settings = doc.RootElement.Deserialize<AppSettings>(JsonOptions) ?? AppSettings.CreateDefault();
 
-            // 旧版设置文件没有 EffectMode 字段：按旧开关字段推导（火花开 → Spark，否则 Classic）
+            // 旧版设置文件没有 EffectMode 字段：按旧开关字段推导（火屑开 → Spark，否则 Classic）
             if (doc.RootElement.ValueKind == JsonValueKind.Object &&
                 !doc.RootElement.TryGetProperty("EffectMode", out _))
             {

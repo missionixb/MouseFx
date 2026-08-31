@@ -71,7 +71,7 @@ public partial class App : Application
         catch (InvalidOperationException ex)
         {
             MessageBox.Show($"鼠标钩子启动失败：{ex.Message}。特效将无法工作。",
-                "鼠标特效", MessageBoxButton.OK, MessageBoxImage.Warning);
+                "萤火鼠", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
         var tray = new TrayIcon(OpenSettings);
@@ -87,7 +87,7 @@ public partial class App : Application
         _ripple!.Hue = _settings.Hue;
         _ripple.MaxRadius = _settings.RippleRadius;
         _ripple.Shape = _settings.RippleShape;
-        _spark!.Hue = _settings.SparkHue;   // 火花颜色与经典特效分开
+        _spark!.Hue = _settings.SparkHue;   // 火屑颜色与光圈特效分开
         _spark.PoolLimit = _settings.SparkCount;
         _spark.MaxLife = _settings.SparkLife;
         _sparkler!.PoolLimit = _settings.SparklerCount;
@@ -105,7 +105,7 @@ public partial class App : Application
         _sparkler!.PoolLimit = Math.Min(_settings!.SparklerCount, 200);
     }
 
-    /// <summary>应用特效模式：同一时刻只启用一种（经典组合 / 火花 / 仙女棒），并同步旧开关字段。</summary>
+    /// <summary>应用特效模式：同一时刻只启用一种（光圈 / 火屑 / 烟花），并同步旧开关字段。</summary>
     private void ApplyEffectMode(EffectMode mode)
     {
         _settings!.EffectMode = mode;
