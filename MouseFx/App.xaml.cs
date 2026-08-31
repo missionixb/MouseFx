@@ -1,4 +1,6 @@
+using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Interop;
 using System.Windows.Media;
 using MouseFx.Effects;
 using MouseFx.Hooks;
@@ -30,9 +32,8 @@ public partial class App : Application
         ApplySystemTheme(); // 跟随系统亮暗主题（含 token 字典整本替换）
         Wpf.Ui.Appearance.ApplicationThemeManager.Changed += (theme, _) => ApplyThemeTokens(theme);
 
-        // 首次运行默认开启开机自启动；之后菜单状态只反映注册表真实状态
-        if (!_autoStart.IsConfigured)
-            _autoStart.Enable();
+        // 首次运行启用自启动；之后自愈（启动项被删/指向旧 exe 时自动重写；用户显式停用则不动）
+        _autoStart.EnsureRegistered();
 
         _settings = _settingsService.Load();
 
@@ -57,6 +58,8 @@ public partial class App : Application
             {
                 _spark!.PoolLimit = _settings!.SparkCount;
                 _sparkler!.PoolLimit = _settings!.SparklerCount;
+                _spark.BurstScale = 1.0;
+                _sparkler.BurstScale = 1.0;
             }
         });
         _overlay.FadeOnFullscreen = _settings!.HideOnFullscreen;
@@ -119,17 +122,21 @@ public partial class App : Application
         _spark.MaxLife = _settings.SparkLife;
         _sparkler!.PoolLimit = _settings.SparklerCount;
         _sparkler.Size = _settings.SparklerSize;
+        _spark.ClickBurstEnabled = _settings.SparkClickBurst;
+        _sparkler.ClickBurstEnabled = _settings.SparklerClickBurst;
         _glow.IdleFade = _settings.IdleFade;
         _spark.IdleFade = _settings.IdleFade;
         _sparkler.IdleFade = _settings.IdleFade;
         ApplyEffectMode(_settings.EffectMode);
     }
 
-    /// <summary>软件渲染时限制粒子特效密度（避免 CPU 光栅化过载）。</summary>
+    /// <summary>软件渲染时限制粒子特效密度（避免 CPU 光栅化过载），爆炸同步降密度。</summary>
     private void ApplySoftwareDensity()
     {
         _spark!.PoolLimit = Math.Min(_settings!.SparkCount, 120);
         _sparkler!.PoolLimit = Math.Min(_settings!.SparklerCount, 200);
+        _spark.BurstScale = 0.5;
+        _sparkler.BurstScale = 0.5;
     }
 
     /// <summary>应用特效模式：同一时刻只启用一种（光圈 / 火屑 / 烟花），并同步旧开关字段。</summary>
@@ -145,7 +152,7 @@ public partial class App : Application
         _sparkler!.Enabled = mode == EffectMode.Sparkler;
     }
 
-    /// <summary>打开设置窗口（单例，已开则激活；关闭后下次重建）。</summary>
+    /// <summary>打开设置窗口（单例，已开则激活；关闭后下次重建）。保证弹到前台最上层。</summary>
     private void OpenSettings()
     {
         if (_settingsWindow == null)
@@ -155,11 +162,41 @@ public partial class App : Application
             // WPF 窗口关闭后不能重新 Show()，关闭时释放引用以便下次重建
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
         }
+        if (_settingsWindow.WindowState == WindowState.Minimized)
+            _settingsWindow.WindowState = WindowState.Normal;
         if (_settingsWindow.IsVisible)
             _settingsWindow.Activate();
         else
             _settingsWindow.Show();
+        BringToForeground(_settingsWindow);
     }
+
+    /// <summary>
+    /// 强制窗口到前台。托盘菜单点击后，本进程常已不是前台进程，
+    /// WPF 的 Activate() 会被 Windows 前台锁（foreground lock）偶尔拒绝——
+    /// 窗口就开在了其他程序下层。先模拟一次 Alt 释放前台锁再 SetForegroundWindow（社区标准做法）。
+    /// </summary>
+    private static void BringToForeground(Window window)
+    {
+        var hwnd = new WindowInteropHelper(window).Handle;
+        if (hwnd == IntPtr.Zero || GetForegroundWindow() == hwnd) return;
+
+        keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
+        keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+        SetForegroundWindow(hwnd);
+    }
+
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+    private const int VK_MENU = 0x12;        // Alt
+    private const int KEYEVENTF_KEYUP = 0x0002;
 
     protected override void OnExit(ExitEventArgs e)
     {
