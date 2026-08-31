@@ -52,4 +52,21 @@ public class FullscreenDetectorTests
         var offset = new Rect(100, 0, MonitorWidth, MonitorHeight);
         Assert.False(FullscreenDetector.IsFullscreen(offset, MonitorRect, StyleBorderless, zoomed: false, cloaked: false));
     }
+
+    [Fact]
+    public void 桌面宿主窗口类名被识别()
+    {
+        // Progman 常规桌面；WorkerW 出现于壁纸引擎/幻灯片壁纸场景。
+        // 两者恰好满足全部全屏条件，必须在 Win32 查询处短路排除。
+        Assert.True(FullscreenDetector.IsDesktopWindow("Progman"));
+        Assert.True(FullscreenDetector.IsDesktopWindow("WorkerW"));
+    }
+
+    [Fact]
+    public void 非桌面窗口类名不误伤()
+    {
+        Assert.False(FullscreenDetector.IsDesktopWindow("AcGameWnd")); // 全屏游戏
+        Assert.False(FullscreenDetector.IsDesktopWindow("Chrome_WidgetWin_1"));
+        Assert.False(FullscreenDetector.IsDesktopWindow(""));
+    }
 }

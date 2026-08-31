@@ -40,10 +40,20 @@ public sealed class FullscreenDetector
     [DllImport("dwmapi.dll")]
     private static extern int DwmGetWindowAttribute(IntPtr hwnd, uint attribute, out int value, int size);
 
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+
     public bool IsForegroundFullscreen()
     {
         IntPtr fg = GetForegroundWindow();
         if (fg == IntPtr.Zero) return false;
+
+        // 桌面宿主窗口（Progman/WorkerW）恰好满足全部全屏条件：铺满整屏、
+        // 无标题栏、无边框——左键点桌面会被误判为全屏游戏。按类名排除。
+        var className = new System.Text.StringBuilder(256);
+        if (GetClassName(fg, className, className.Capacity) > 0 && IsDesktopWindow(className.ToString()))
+            return false;
+
         if (!GetWindowRect(fg, out RECT r)) return false;
 
         var monitorInfo = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
@@ -68,6 +78,10 @@ public sealed class FullscreenDetector
            && windowRect == monitorRect
            && (style & WS_CAPTION) == 0
            && (style & WS_THICKFRAME) == 0;
+
+    /// <summary>桌面宿主窗口类名（Progman 常规桌面；WorkerW 出现于壁纸引擎/幻灯片壁纸等场景）。</summary>
+    public static bool IsDesktopWindow(string className)
+        => className is "Progman" or "WorkerW";
 
     [StructLayout(LayoutKind.Sequential)]
     private struct RECT
