@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Media;
 using MouseFx.Effects;
+using MouseFx.Overlay;
 using MouseFx.Platform;
 
 namespace MouseFx.Settings;
@@ -12,16 +13,18 @@ public partial class SettingsWindow : Window
     private readonly RippleEffect _ripple;
     private readonly SparkEffect _spark;
     private readonly SparklerEffect _sparkler;
+    private readonly OverlayWindow _overlay;
     private readonly SettingsService _service;
 
     public SettingsWindow(AppSettings settings, GlowEffect glow, RippleEffect ripple, SparkEffect spark,
-        SparklerEffect sparkler, IAutoStartService autoStart, SettingsService service)
+        SparklerEffect sparkler, OverlayWindow overlay, IAutoStartService autoStart, SettingsService service)
     {
         _settings = settings;
         _glow = glow;
         _ripple = ripple;
         _spark = spark;
         _sparkler = sparkler;
+        _overlay = overlay;
         _service = service;
         InitializeComponent();
 
@@ -33,9 +36,12 @@ public partial class SettingsWindow : Window
         SpeedSlider.Value = settings.FollowSpeed;
         SparkHueSlider.Value = settings.SparkHue;
         SparkCountSlider.Value = settings.SparkCount;
+        SparkLifeSlider.Value = settings.SparkLife;
         SparklerCountSlider.Value = settings.SparklerCount;
+        SparklerSizeSlider.Value = settings.SparklerSize;
         EffectModeBox.SelectedIndex = (int)settings.EffectMode;
         IdleFadeToggle.IsChecked = settings.IdleFade;
+        FullscreenToggle.IsChecked = overlay.FadeOnFullscreen;
         AutoStartToggle.IsChecked = autoStart.IsEnabled;
         RippleShapeBox.SelectedIndex = (int)settings.RippleShape;
 
@@ -47,7 +53,9 @@ public partial class SettingsWindow : Window
         RippleShapeBox.SelectionChanged += (_, _) => ApplyAll();
         SparkHueSlider.ValueChanged += (_, _) => ApplySparkAll();
         SparkCountSlider.ValueChanged += (_, _) => ApplySparkAll();
+        SparkLifeSlider.ValueChanged += (_, _) => ApplySparkAll();
         SparklerCountSlider.ValueChanged += (_, _) => ApplySparklerAll();
+        SparklerSizeSlider.ValueChanged += (_, _) => ApplySparklerAll();
         ClassicResetButton.Click += (_, _) =>
         {
             // 默认值取自 CreateDefault()（初版值：色相 210° 蓝、光圈 28px）；滑块赋值
@@ -65,9 +73,14 @@ public partial class SettingsWindow : Window
             var d = AppSettings.CreateDefault();
             SparkHueSlider.Value = d.SparkHue; // 火焰色（橙金 30°）
             SparkCountSlider.Value = d.SparkCount;
+            SparkLifeSlider.Value = d.SparkLife;
         };
         SparklerResetButton.Click += (_, _) =>
-            SparklerCountSlider.Value = AppSettings.CreateDefault().SparklerCount;
+        {
+            var d = AppSettings.CreateDefault();
+            SparklerCountSlider.Value = d.SparklerCount;
+            SparklerSizeSlider.Value = d.SparklerSize;
+        };
         EffectModeBox.SelectionChanged += (_, _) =>
             ApplyMode((EffectMode)EffectModeBox.SelectedIndex);
         IdleFadeToggle.Click += (_, _) =>
@@ -76,6 +89,12 @@ public partial class SettingsWindow : Window
             _spark.IdleFade = _glow.IdleFade;
             _sparkler.IdleFade = _glow.IdleFade;
             _settings.IdleFade = _glow.IdleFade;
+            _service.Save(_settings);
+        };
+        FullscreenToggle.Click += (_, _) =>
+        {
+            _overlay.FadeOnFullscreen = FullscreenToggle.IsChecked == true;
+            _settings.HideOnFullscreen = _overlay.FadeOnFullscreen;
             _service.Save(_settings);
         };
         AutoStartToggle.Click += (_, _) =>
@@ -146,34 +165,40 @@ public partial class SettingsWindow : Window
         SparklerPanel.Visibility = mode == EffectMode.Sparkler ? Visibility.Visible : Visibility.Collapsed;
         Height = mode switch
         {
-            EffectMode.Classic => 548,
-            EffectMode.Spark => 365,
-            _ => 330,
+            EffectMode.Classic => 571,
+            EffectMode.Spark => 425,
+            _ => 391,
         };
     }
 
-    /// <summary>火花参数：独立颜色 + 粒子上限，同步到设置与特效并保存。</summary>
+    /// <summary>火花参数：独立颜色 + 粒子上限 + 生命，同步到设置与特效并保存。</summary>
     private void ApplySparkAll()
     {
         _settings.SparkHue = SparkHueSlider.Value;
         _settings.SparkCount = (int)Math.Round(SparkCountSlider.Value);
+        _settings.SparkLife = Math.Round(SparkLifeSlider.Value, 2);
         _spark.Hue = _settings.SparkHue;
         _spark.PoolLimit = _settings.SparkCount;
+        _spark.MaxLife = _settings.SparkLife;
 
         SparkColorPreview.Fill = new SolidColorBrush(ColorUtils.FromHue(_settings.SparkHue));
         SparkHueValue.Text = $"{SparkHueSlider.Value:0}°";
         SparkCountValue.Text = $"{SparkCountSlider.Value:0} 颗";
+        SparkLifeValue.Text = $"{SparkLifeSlider.Value:0.0} 秒";
 
         _service.Save(_settings);
     }
 
-    /// <summary>仙女棒参数：粒子上限（颜色固定不可调），同步到设置与特效并保存。</summary>
+    /// <summary>仙女棒参数：粒子上限 + 星芒直径（颜色固定不可调），同步到设置与特效并保存。</summary>
     private void ApplySparklerAll()
     {
         _settings.SparklerCount = (int)Math.Round(SparklerCountSlider.Value);
+        _settings.SparklerSize = Math.Round(SparklerSizeSlider.Value);
         _sparkler.PoolLimit = _settings.SparklerCount;
+        _sparkler.Size = _settings.SparklerSize;
 
         SparklerCountValue.Text = $"{SparklerCountSlider.Value:0} 颗";
+        SparklerSizeValue.Text = $"{SparklerSizeSlider.Value:0} px";
 
         _service.Save(_settings);
     }

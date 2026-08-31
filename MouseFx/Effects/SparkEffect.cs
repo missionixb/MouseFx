@@ -46,6 +46,9 @@ public sealed class SparkEffect : IEffect
     /// <summary>粒子上限，超出回收最早发射的（软渲染降级时可调低粒子密度）。</summary>
     public int PoolLimit { get; set; } = 250;
 
+    /// <summary>最长寿命（秒）；实际寿命在 0.4 秒与该值之间随机。调大可让火星飘落更久。</summary>
+    public double MaxLife { get; set; } = 0.9;
+
     /// <summary>鼠标静止（或输入断流）2 秒后是否停止发射。false = 静止时持续冒火星。</summary>
     public bool IdleFade { get; set; } = true;
 
@@ -186,7 +189,7 @@ public sealed class SparkEffect : IEffect
             Y = _emitPosition.Y + (_random.NextDouble() - 0.5) * 4,
             VX = vx,
             VY = vy,
-            Life = 0.4 + _random.NextDouble() * 0.5,                        // 0.4~0.9s
+            Life = 0.4 + _random.NextDouble() * Math.Max(0.05, MaxLife - 0.4), // 0.4 ~ MaxLife
             CanBurst = _random.NextDouble() < BurstFraction,
             FlickerPhase = _random.NextDouble() * Math.PI * 2,
             FlickerFreq = 15 + _random.NextDouble() * 20,

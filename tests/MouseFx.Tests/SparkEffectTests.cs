@@ -157,4 +157,21 @@ public class SparkEffectTests
         Assert.True(effect.InputStalled); // 断流态成立
         Assert.NotEmpty(effect.ActiveSparks); // 但仍在发射
     }
+
+    [Fact]
+    public void 火花寿命随生命设置延长()
+    {
+        // 默认 MaxLife 0.9：寿命 0.4~0.9s
+        var effect = new SparkEffect(new Random(7)) { Enabled = true };
+        effect.OnMouseMove(new Point(0, 0));
+        effect.Update(Frame());
+        Assert.All(effect.ActiveSparks, s => Assert.InRange(s.Life, 0.4, 0.9 + 1e-9));
+
+        // MaxLife 2.5：寿命延长到 0.4~2.5s，下坠窗口更长
+        var longLife = new SparkEffect(new Random(7)) { Enabled = true, MaxLife = 2.5 };
+        longLife.OnMouseMove(new Point(0, 0));
+        longLife.Update(Frame());
+        Assert.All(longLife.ActiveSparks, s => Assert.InRange(s.Life, 0.4, 2.5 + 1e-9));
+        Assert.True(longLife.ActiveSparks.Max(s => s.Life) > effect.ActiveSparks.Max(s => s.Life));
+    }
 }

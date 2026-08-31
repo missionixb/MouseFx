@@ -22,10 +22,13 @@ public class SettingsServiceTests
         Assert.True(s.GlowEnabled);
         Assert.False(s.SparkEnabled);
         Assert.True(s.IdleFade);
+        Assert.True(s.HideOnFullscreen);
         Assert.Equal(EffectMode.Classic, s.EffectMode);
         Assert.Equal(30, s.SparkHue);       // 火花默认橙金，与经典颜色（210 蓝）独立
         Assert.Equal(250, s.SparkCount);
-        Assert.Equal(400, s.SparklerCount);
+        Assert.Equal(0.9, s.SparkLife);     // 火花默认寿命 = 现状
+        Assert.Equal(200, s.SparklerCount);
+        Assert.Equal(150, s.SparklerSize);
     }
 
     [Fact]
@@ -46,9 +49,11 @@ public class SettingsServiceTests
                 GlowEnabled = false,
                 SparkEnabled = true,
                 IdleFade = false,
+                HideOnFullscreen = false,
                 EffectMode = EffectMode.Sparkler,
                 SparkHue = 45,
                 SparkCount = 120,
+                SparkLife = 2.0,
                 SparklerCount = 300,
                 FollowSpeed = 80,
             };
@@ -64,9 +69,11 @@ public class SettingsServiceTests
             Assert.False(loaded.GlowEnabled);
             Assert.True(loaded.SparkEnabled);
             Assert.False(loaded.IdleFade);
+            Assert.False(loaded.HideOnFullscreen);
             Assert.Equal(EffectMode.Sparkler, loaded.EffectMode);
             Assert.Equal(45, loaded.SparkHue);
             Assert.Equal(120, loaded.SparkCount);
+            Assert.Equal(2.0, loaded.SparkLife);
             Assert.Equal(300, loaded.SparklerCount);
             Assert.Equal(80, loaded.FollowSpeed);
         }

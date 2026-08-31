@@ -56,6 +56,7 @@ public partial class App : Application
                 _sparkler!.PoolLimit = _settings!.SparklerCount;
             }
         });
+        _overlay.FadeOnFullscreen = _settings!.HideOnFullscreen;
         _overlay.Show();
 
         _hook = new MouseHook();
@@ -88,7 +89,9 @@ public partial class App : Application
         _ripple.Shape = _settings.RippleShape;
         _spark!.Hue = _settings.SparkHue;   // 火花颜色与经典特效分开
         _spark.PoolLimit = _settings.SparkCount;
+        _spark.MaxLife = _settings.SparkLife;
         _sparkler!.PoolLimit = _settings.SparklerCount;
+        _sparkler.Size = _settings.SparklerSize;
         _glow.IdleFade = _settings.IdleFade;
         _spark.IdleFade = _settings.IdleFade;
         _sparkler.IdleFade = _settings.IdleFade;
@@ -120,7 +123,8 @@ public partial class App : Application
     {
         if (_settingsWindow == null)
         {
-            _settingsWindow = new SettingsWindow(_settings!, _glow!, _ripple!, _spark!, _sparkler!, _autoStart, _settingsService);
+            _settingsWindow = new SettingsWindow(_settings!, _glow!, _ripple!, _spark!, _sparkler!,
+                _overlay!, _autoStart, _settingsService);
             // WPF 窗口关闭后不能重新 Show()，关闭时释放引用以便下次重建
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
         }

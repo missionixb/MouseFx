@@ -52,14 +52,23 @@ public sealed class AppSettings
     /// <summary>鼠标静止（或输入断流）2 秒后特效是否淡出消失（持久化；作用于光晕/火花/仙女棒）。</summary>
     public bool IdleFade { get; set; } = true;
 
+    /// <summary>前台强制全屏（游戏）时特效是否自动淡出隐藏，退出全屏后恢复（持久化）。</summary>
+    public bool HideOnFullscreen { get; set; } = true;
+
     /// <summary>火花主色色相（0-360），与经典特效（光圈+点击）的颜色分开保存。默认橙金。</summary>
     public double SparkHue { get; set; } = 30;
 
-    /// <summary>火花粒子上限（颗，50~400），超出回收最早发射的。</summary>
+    /// <summary>火花粒子上限（颗，50~600），超出回收最早发射的。</summary>
     public int SparkCount { get; set; } = 250;
 
-    /// <summary>仙女棒粒子上限（颗，100~600），超出回收最早发射的。</summary>
-    public int SparklerCount { get; set; } = 400;
+    /// <summary>火花最长寿命（秒，0.4~2.5）；实际寿命在 0.4 秒与该值之间随机。默认 0.9（现状）。</summary>
+    public double SparkLife { get; set; } = 0.9;
+
+    /// <summary>仙女棒粒子上限（颗，100~800），超出回收最早发射的。</summary>
+    public int SparklerCount { get; set; } = 200;
+
+    /// <summary>仙女棒星芒直径（px，80~500），火星初速与线长随之缩放。</summary>
+    public double SparklerSize { get; set; } = 150;
 
     /// <summary>光晕跟随指数系数 k（/s），越大越跟手。</summary>
     public double FollowSpeed { get; set; } = 50;

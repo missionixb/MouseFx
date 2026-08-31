@@ -31,48 +31,95 @@ public class SparklerEffectTests
     }
 
     [Fact]
-    public void 静止时仍持续爆发且与移动无关()
-    {
-        var effect = new SparklerEffect(new Random(11)) { Enabled = true };
-        effect.OnMouseMove(new Point(0, 0));
-
-        for (int i = 0; i < 60; i++) // ~1s，无任何移动事件 → 爆发照常
-            effect.Update(Frame());
-
-        Assert.True(effect.BurstCycles >= 2, $"1s 内应至少 2 轮爆发，实际 {effect.BurstCycles}");
-        Assert.NotEmpty(effect.ActiveParticles);
-    }
-
-    [Fact]
-    public void 每轮爆发喷射颗数在8到15之间()
+    public void 与移动无关_静止时每帧高密度发射3到6颗()
     {
         var effect = new SparklerEffect(new Random(2026)) { Enabled = true };
         effect.OnMouseMove(new Point(0, 0));
-        effect.Update(Frame()); // 第一轮爆发开始
 
-        int before = effect.EmittedTotal;
-        for (int i = 0; i < 40 && effect.BurstCycles < 2; i++) // 等第一轮爆发结束
+        for (int i = 0; i < 30; i++) // 静止 ~0.5s，持续发射
+        {
+            int before = effect.EmittedTotal;
             effect.Update(Frame());
-
-        Assert.InRange(effect.EmittedTotal - before, 8, 15);
+            Assert.InRange(effect.EmittedTotal - before, 3, 6);
+        }
     }
 
     [Fact]
-    public void 二次爆裂发生且伴随亮白闪光点()
+    public void 母火星参数在规格区间内且长短错落()
     {
-        var effect = new SparklerEffect(new Random(77)) { Enabled = true };
+        var effect = new SparklerEffect(new Random(99)) { Enabled = true, Size = 300 }; // 基准直径
+        effect.OnMouseMove(new Point(0, 0));
+        effect.Update(Frame());
+
+        var parents = effect.ActiveParticles.Where(p => !p.IsChild).ToList();
+        Assert.NotEmpty(parents);
+        Assert.All(parents, s =>
+        {
+            double speed = Math.Sqrt(s.VX * s.VX + s.VY * s.VY);
+            Assert.InRange(speed, 600, 1200 + 1e-9);   // 初速 600~1200
+            Assert.InRange(s.Life, 0.3, 0.6 + 1e-9);   // 寿命 0.3~0.6s
+            Assert.InRange(s.RenderLength, 15, 60 + 1e-9); // 线长 15~60px
+            Assert.InRange(s.Layer, 0, 2);             // 球面纵深层
+        });
+        // 长短错落：一帧内线长极差应明显（> 10px），避免"表盘"感
+        Assert.True(parents.Max(p => p.RenderLength) - parents.Min(p => p.RenderLength) > 10,
+            "同一帧内线长应有明显差异");
+    }
+
+    [Fact]
+    public void 速度幂律分布使中心火星密度更高()
+    {
+        var effect = new SparklerEffect(new Random(42)) { Enabled = true, Size = 300 }; // 基准直径
         effect.OnMouseMove(new Point(0, 0));
 
-        for (int i = 0; i < 40 && effect.SecondaryBurstCount == 0; i++) // 等首次二次爆裂
+        var speeds = new List<double>();
+        for (int i = 0; i < 50; i++) // 采集 ~200 颗
+        {
             effect.Update(Frame());
+            speeds.AddRange(effect.ActiveParticles.Where(p => !p.IsChild)
+                .Select(p => Math.Sqrt(p.VX * p.VX + p.VY * p.VY)));
+        }
 
-        Assert.True(effect.SecondaryBurstCount > 0);
-        Assert.Contains(effect.ActiveParticles, s => s.IsFlash);   // 爆裂瞬间的闪光点
-        Assert.Contains(effect.ActiveParticles, s => s.IsChild);   // 子火星
+        // 幂律偏置（pow 1.8）下应约 68% 的火星低于中值速度 900（均匀分布是 50%）
+        double slowFraction = (double)speeds.Count(v => v < 900) / speeds.Count;
+        Assert.True(slowFraction > 0.6, $"低速火星占比应 > 60%（中心密度更高），实际 {slowFraction:P0}");
     }
 
     [Fact]
-    public void 子火星更短命且不再二次爆裂()
+    public void 星芒直径按比例缩放速度与线长()
+    {
+        var effect = new SparklerEffect(new Random(7)) { Enabled = true, Size = 150 }; // 默认直径 = 半倍基准
+        effect.OnMouseMove(new Point(0, 0));
+        effect.Update(Frame());
+
+        Assert.All(effect.ActiveParticles.Where(p => !p.IsChild), s =>
+        {
+            double speed = Math.Sqrt(s.VX * s.VX + s.VY * s.VY);
+            Assert.InRange(speed, 300, 600 + 1e-9);       // 600~1200 × 0.5
+            Assert.InRange(s.RenderLength, 7.5, 30 + 1e-9); // 15~60 × 0.5
+        });
+    }
+
+    [Fact]
+    public void 寿命终点末端分叉出2到3根子亮线()
+    {
+        var effect = new SparklerEffect(new Random(77)) { Enabled = true, Size = 300 }; // 基准直径
+        effect.OnMouseMove(new Point(0, 0));
+
+        for (int i = 0; i < 60 && effect.ForkCount == 0; i++) // 等首次分叉（寿命 ≤0.6s）
+            effect.Update(Frame());
+
+        Assert.True(effect.ForkCount > 0);
+        Assert.Contains(effect.ActiveParticles, s => s.IsChild);          // 子亮线存在
+        Assert.All(effect.ActiveParticles.Where(s => s.IsChild), s =>
+        {
+            Assert.InRange(s.RenderLength, 5, 15 + 1e-9);  // 更短：5~15px
+            Assert.InRange(s.Life, 0.1, 0.15 + 1e-9);      // 随母火星熄灭而短存
+        });
+    }
+
+    [Fact]
+    public void 分叉只发生在寿命终点_中途不分叉()
     {
         var effect = new SparklerEffect(new Random(77)) { Enabled = true };
         effect.OnMouseMove(new Point(0, 0));
@@ -80,88 +127,54 @@ public class SparklerEffectTests
         for (int i = 0; i < 120; i++) // ~2s
         {
             effect.Update(Frame());
-            // 子火星寿命 100~200ms；母火星兜底 0.45s；闪光点 60~100ms
-            Assert.All(effect.ActiveParticles, s => Assert.InRange(s.Life, 0.06, 0.45 + 1e-9));
-            Assert.All(effect.ActiveParticles, s => Assert.True(s.Age < s.Life + 1e-9));
-            // 子火星与闪光点都带 HasBurst 标记，不会再触发二次爆裂
-            Assert.All(effect.ActiveParticles, s => Assert.True(!s.IsChild || s.HasBurst));
+            // 存活母火星的年龄必须小于寿命（分叉只在 Age ≥ Life 时发生）
+            Assert.All(effect.ActiveParticles.Where(p => !p.IsChild),
+                s => Assert.True(s.Age < s.Life + 1e-9));
+            // 子亮线寿命独立且更短
+            Assert.All(effect.ActiveParticles, s => Assert.InRange(s.Life, 0.1, 0.6 + 1e-9));
         }
     }
 
     [Fact]
-    public void 空气阻力指数衰减与弱重力叠加()
+    public void 空气阻力轻微减速与极弱重力叠加()
     {
-        var s = new SparklerParticle { VX = 1000, VY = -500, BurstAt = 10, BurstDistance = 1e6 };
+        var s = new SparklerParticle { VX = 1000, VY = -500 };
 
         double dt = 0.05;
-        bool shouldBurst = SparklerEffect.Advance(ref s, dt);
+        SparklerEffect.Advance(ref s, dt);
 
-        Assert.False(shouldBurst); // 距离/时间阈值都未达到
         double decay = Math.Exp(-SparklerEffect.Drag * dt);
         Assert.Equal(1000 * decay, s.VX, 6);
         Assert.Equal(-500 * decay + SparklerEffect.Gravity * dt, s.VY, 6);
-        double expectedDist = Math.Sqrt(s.VX * s.VX + s.VY * s.VY) * dt;
-        Assert.Equal(expectedDist, s.DistanceTravelled, 6);
+        Assert.Equal(s.X, 1000 * decay * dt, 6);
     }
 
     [Fact]
-    public void 二次爆裂条件距离或时间先到先触发()
+    public void 亮线颜色六档覆盖深橙到近白金_火星头白热()
     {
-        // 距离触发：BurstDistance 30px，速度 1000 px/s × 0.05s = 50px ≥ 30
-        var byDistance = new SparklerParticle { VX = 1000, VY = 0, BurstAt = 10, BurstDistance = 30 };
-        Assert.True(SparklerEffect.Advance(ref byDistance, 0.05));
+        Assert.Equal(SparklerEffect.LineColor(0), Color.FromRgb(0xFF, 0x8A, 0x2A)); // 深橙下限
+        Assert.Equal(SparklerEffect.LineColor(5), Color.FromRgb(0xFF, 0xE6, 0xA8)); // 近白金上限
 
-        // 时间触发：速度慢到距离不够；Age 已含本帧增量（Update 中先加 Age 再调 Advance）
-        var byTime = new SparklerParticle { VX = 100, VY = 0, Age = 0.08, BurstAt = 0.08, BurstDistance = 1e6 };
-        Assert.True(SparklerEffect.Advance(ref byTime, 0.1));
+        // 中间档单调递增（B 通道随档位升高），形成层次
+        for (int tier = 1; tier < 5; tier++)
+            Assert.True(SparklerEffect.LineColor(tier).B > SparklerEffect.LineColor(tier - 1).B,
+                $"档位 {tier} 的 B 通道应高于前一档");
 
-        // 闪光点永不触发也不移动
-        var flash = new SparklerParticle { VX = 999, VY = 999, IsFlash = true, BurstAt = 0, BurstDistance = 0 };
-        Assert.False(SparklerEffect.Advance(ref flash, 0.1));
-        Assert.Equal(999, flash.VX);
-    }
-
-    [Fact]
-    public void 母火星初速度在700到1400之间()
-    {
-        var effect = new SparklerEffect(new Random(99)) { Enabled = true };
-        effect.OnMouseMove(new Point(0, 0));
-        effect.Update(Frame());
-
-        Assert.All(effect.ActiveParticles.Where(p => !p.IsChild && !p.IsFlash), s =>
-        {
-            double speed = Math.Sqrt(s.VX * s.VX + s.VY * s.VY);
-            Assert.InRange(speed, 700, 1400 + 1e-9);
-        });
-    }
-
-    [Fact]
-    public void 颜色生命周期蓝白到纯白到黄白最后橙红余烬()
-    {
-        Assert.Equal(SparklerEffect.LifeColor(0), Color.FromRgb(0xE8, 0xF1, 0xFF));   // 蓝白
-        Assert.Equal(SparklerEffect.LifeColor(0.3), Colors.White);                     // 纯白核心
-        Assert.Equal(SparklerEffect.LifeColor(0.5), Color.FromRgb(0xFF, 0xF8, 0xE4)); // 白→黄白途中
-        Assert.Equal(SparklerEffect.LifeColor(0.7), Color.FromRgb(0xFF, 0xF4, 0xD6));  // 黄白
-        Assert.Equal(SparklerEffect.LifeColor(1), Color.FromRgb(0x66, 0x14, 0x00));    // 暗余烬
-
-        // 最后 20% 内：红通道始终最高 → 橙红色系，且逐渐变暗
-        var mid = SparklerEffect.LifeColor(0.85);
-        var late = SparklerEffect.LifeColor(0.95);
-        Assert.True(mid.R > mid.G && mid.G > mid.B);
-        Assert.True(late.R < mid.R);
+        Assert.Equal(40, SparklerEffect.Gravity);  // 极弱重力（近似直线）
+        Assert.True(SparklerEffect.Drag < 2.5);    // 轻微阻力
     }
 
     [Fact]
     public void 池满时不再增长()
     {
         var effect = new SparklerEffect(new Random(99)) { Enabled = true };
-        effect.PoolLimit = 5;
+        effect.PoolLimit = 10;
         effect.OnMouseMove(new Point(0, 0));
 
         for (int i = 0; i < 30; i++)
             effect.Update(Frame());
 
-        Assert.True(effect.ActiveParticles.Count <= 5);
+        Assert.True(effect.ActiveParticles.Count <= 10);
     }
 
     [Fact]
@@ -170,7 +183,7 @@ public class SparklerEffectTests
         var effect = new SparklerEffect(new Random(11)) { Enabled = true, IdleFade = true };
         effect.OnMouseMove(new Point(0, 0));
         for (int i = 0; i < 3; i++)
-            effect.Update(Frame()); // 第一帧点火、后续帧开始喷发
+            effect.Update(Frame());
         Assert.NotEmpty(effect.ActiveParticles);
 
         for (int i = 0; i < 130; i++)
@@ -185,7 +198,7 @@ public class SparklerEffectTests
     }
 
     [Fact]
-    public void 静止淡出关闭时断流仍持续爆燃()
+    public void 静止淡出关闭时断流仍持续燃烧()
     {
         var effect = new SparklerEffect(new Random(11)) { Enabled = true, IdleFade = false };
         effect.OnMouseMove(new Point(0, 0));
@@ -194,7 +207,7 @@ public class SparklerEffectTests
             effect.Update(Frame());
 
         Assert.True(effect.InputStalled);
-        Assert.NotEmpty(effect.ActiveParticles); // 仍在爆发
+        Assert.NotEmpty(effect.ActiveParticles); // 仍在发射
         Assert.Equal(1, effect.CoreFade);        // 光核常亮
     }
 }

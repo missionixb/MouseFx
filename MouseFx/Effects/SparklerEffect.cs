@@ -3,96 +3,99 @@ using System.Windows.Media;
 
 namespace MouseFx.Effects;
 
-/// <summary>单颗仙女棒火星的状态（struct，池内复用）。</summary>
+/// <summary>单颗星芒火星的状态（struct，池内复用）。</summary>
 public struct SparklerParticle
 {
-    public double X;               // 位置
+    public double X;               // 位置（也是亮线的"火星头"）
     public double Y;
     public double VX;              // 速度（px/s）
     public double VY;
     public double Age;             // 已存活秒数
     public double Life;            // 生命总长
-    public bool IsChild;           // 二次爆裂产生的子火星（更快、更细、更短命）
-    public bool IsFlash;           // 爆裂瞬间的亮白闪光点（原地 2~3px）
-    public bool HasBurst;          // 是否已完成二次爆裂（子火星/闪光点不再爆裂）
-    public double BurstAt;         // 二次爆裂时间阈值（80~150ms）
-    public double BurstDistance;   // 二次爆裂距离阈值（30~80px）
-    public double DistanceTravelled; // 累计飞行路程
+    public bool IsChild;           // 末端分叉出的子亮线（更短更细）
+    public double RenderLength;    // 显示线长（px），父 15~60、子 5~15，参差错落
+    public int ColorTier;          // 金琥珀色档（0~5，深橙→近白金）
+    public int Layer;              // 球面纵深层：0=中心层（慢速、亮、粗），2=外层（快速、暗、细）
     public double FlickerPhase;    // 闪烁初相（rad）
     public double FlickerFreq;     // 闪烁角频率（rad/s）
 }
 
 /// <summary>
-/// 仙女棒特效：手持仙女棒/镁条爆燃观感。无论鼠标移动还是静止，火星始终以鼠标位置为中心
-/// 向四周 360° 均匀喷射（中心对称"烟花花朵"，无拖尾偏移，移动时整体跟随不变形）。
-/// 爆发—间歇节奏（每次爆发 50~100ms 喷 8~15 颗，随后短暂间歇）；
-/// 初速极快（700~1400 px/s）、强空气阻力、极弱重力（近乎直线飞行）；
-/// 每颗火星飞行 30~80px 或 80~150ms 后二次爆裂成 2~4 颗更细的子火星并留下亮白闪光点；
-/// 颜色固定（蓝白→纯白→黄白→橙红余烬），不读取用户颜色设置。
-/// 粒子池上限 400（超限回收最早），画笔按（类型 × 色阶 × 亮度桶）惰性缓存 + Freeze，每帧零分配。
+/// 仙女棒特效（星芒/蒲公英形态）：手持仙女棒燃烧的照片质感。以鼠标位置为中心向四周
+/// 360° 高密度连续发射（每帧 3~6 颗，不做爆发—间歇），星芒轮廓始终饱满稳定；
+/// 球形立体感：火星速度按幂律分布（大量低速火星聚集中心、少量高速射向外围），
+/// 并按速度分三个纵深层——中心层更亮更粗、外层更暗更细，如同球形火花云投影到平面；
+/// 每颗火星是一条沿速度方向的细长金色亮线（15~60px，长短错落），线身由头到尾由亮渐暗，
+/// 线末端是白热亮点（火星头）；运动近乎直线放射（轻微阻力+极弱重力）；
+/// 寿命终点（0.3~0.6s）在末端亮点处分叉出 2~3 根更短更细的子亮线（小叉冠状）后熄灭；
+/// 中心是过曝的亮白光核（直径 10~20px，轻微闪烁脉动），全特效最亮。
+/// 颜色固定（深橙 #FF8A2A ~ 近白金 #FFE6A8 六档，火星头 #FFF3D0），不读取用户颜色设置。
+/// 粒子池上限 400（超限回收最早），画笔惰性缓存 + Freeze，每帧零分配。
 /// </summary>
 public sealed class SparklerEffect : IEffect
 {
-    /// <summary>重力加速度（px/s²）——极弱，细火星几乎直线飞行。</summary>
-    public const double Gravity = 80;
+    /// <summary>重力加速度（px/s²）——极弱，轨迹近似直线放射。</summary>
+    public const double Gravity = 40;
 
-    /// <summary>空气阻力系数（/s），速度按 e^(-Drag·dt) 衰减。</summary>
-    public const double Drag = 2.5;
+    /// <summary>空气阻力系数（/s），速度按 e^(-Drag·dt) 轻微减速。</summary>
+    public const double Drag = 1.5;
 
-    /// <summary>寿命最后 20% 渐隐为橙红余烬的起始进度。</summary>
-    public const double EmberStart = 0.8;
+    /// <summary>基准星芒直径（px），速度/线长按 Size/300 缩放。</summary>
+    public const double BaseSize = 300;
 
-    private const int StageCount = 5;       // 颜色分桶数
-    private const int AlphaBuckets = 8;     // 亮度分桶数
-    private const int ParentType = 0;       // 画笔类型：母火星
-    private const int ChildType = 1;        // 子火星
-    private const int FlashType = 2;        // 爆裂闪光点
-    private static readonly double[] TypeThickness = { 1.6, 1.0, 2.6 }; // 1~2px 细火星；闪光点 2~3px
+    private const int EmitMinPerFrame = 3;   // 每帧发射 3~6 颗（高密度连续）
+    private const int EmitMaxPerFrame = 6;
+    private const int ColorTiers = 6;        // 金琥珀色档数（深橙→近白金）
+    private const int AlphaBuckets = 8;      // 亮度分桶数
+    private const int Layers = 3;            // 球面纵深层数
+    private const int SegBright = 0;         // 亮线分段：头侧亮段
+    private const int SegDim = 1;            // 亮线分段：尾侧暗段
+    private static readonly double[] LayerAlpha = { 1.25, 1.0, 0.78 }; // 中心层更亮
+    private static readonly double[] LayerWidth = { 1.8, 1.55, 1.25 }; // 中心层更粗
 
-    private static readonly Color BlueWhite = Color.FromRgb(0xE8, 0xF1, 0xFF);
-    private static readonly Color Ember = Color.FromRgb(0xFF, 0x6A, 0x3C);
-    private static readonly Color EmberDark = Color.FromRgb(0x66, 0x14, 0x00);
-    private static readonly Color WarmWhite = Color.FromRgb(0xFF, 0xF4, 0xD6);
+    private static readonly Color Amber = Color.FromRgb(0xFF, 0x8A, 0x2A); // 深橙（色档下限）
+    private static readonly Color Gold = Color.FromRgb(0xFF, 0xE6, 0xA8);  // 近白金（色档上限）
+    private static readonly Color HotHead = Color.FromRgb(0xFF, 0xF3, 0xD0); // 白热火星头
 
-    // 中心光核/辉光画刷（固定白色，冻结一次）
+    // 中心过曝光核画刷（纯白，冻结一次）
     private static readonly Brush CoreBrush = Freeze(new RadialGradientBrush(
         Color.FromArgb(255, 255, 255, 255), Color.FromArgb(0, 255, 255, 255)));
     private static readonly Brush GlowBrush = Freeze(new RadialGradientBrush(
-        Color.FromArgb(90, 255, 255, 255), Color.FromArgb(0, 255, 255, 255)));
+        Color.FromArgb(120, 255, 255, 255), Color.FromArgb(0, 255, 255, 255)));
 
     public string Name => "仙女棒";
     public bool Enabled { get; set; }
 
-    /// <summary>鼠标静止（或输入断流）2 秒后是否停止爆发并淡出中心光核。false = 持续爆燃。</summary>
+    /// <summary>鼠标静止（或输入断流）2 秒后是否停止发射并淡出中心光核。false = 持续燃烧。</summary>
     public bool IdleFade { get; set; } = true;
 
     /// <summary>粒子上限，超出回收最早发射的（软渲染降级时可调低密度）。</summary>
-    public int PoolLimit { get; set; } = 400;
+    public int PoolLimit { get; set; } = 200;
 
-    /// <summary>爆发—间歇的完整节奏次数（诊断/测试用）。</summary>
-    public int BurstCycles { get; private set; }
+    /// <summary>星芒直径（px），火星初速与线长按 Size/BaseSize 缩放。</summary>
+    public double Size { get; set; } = 150;
 
-    /// <summary>已发生的二次爆裂次数（诊断/测试用）。</summary>
-    public int SecondaryBurstCount { get; private set; }
+    /// <summary>已发生的末端分叉次数（诊断/测试用）。</summary>
+    public int ForkCount { get; private set; }
 
-    /// <summary>累计发射的母火星总数（诊断/测试用）。</summary>
+    /// <summary>累计发射的火星总数（诊断/测试用）。</summary>
     public int EmittedTotal { get; private set; }
 
     private readonly Random _random;
     private readonly List<SparklerParticle> _sparks = new();
-    private readonly Pen?[,,] _pens = new Pen?[3, StageCount, AlphaBuckets]; // 类型 × 色阶 × 亮度桶，调色板固定不重建
+    private readonly Pen?[,,,] _linePens = new Pen?[ColorTiers, 2, AlphaBuckets, Layers]; // 色档 × 段 × 亮度桶 × 纵深层
+    private readonly Pen?[,,] _childPens = new Pen?[ColorTiers, AlphaBuckets, Layers];    // 子亮线（细）
+    private readonly Pen?[] _headPens = new Pen?[AlphaBuckets];                            // 白热火星头
 
-    private Point _pos;             // 鼠标当前位置（发射中心）
+    private Point _pos;          // 鼠标当前位置（发射中心）
     private bool _hasMouse;
-    private double _burstRemain;    // 本次爆发剩余时间（s），0 = 间歇中
-    private int _burstEmitLeft;     // 本次爆发剩余发射颗数
-    private double _restRemain;     // 间歇剩余时间（s）
+    private double _corePhase;   // 中心光核脉动相位
 
-    // 输入断流：管理员窗口前台 / 鼠标静止（IdleFade 开启时）→ 暂停爆发，存量火星自然烧尽
+    // 输入断流：管理员窗口前台 / 鼠标静止（IdleFade 开启时）→ 停发，存量火星自然烧尽
     private static readonly TimeSpan StallBeforeStop = TimeSpan.FromSeconds(2);
     private const double CoreFadeSeconds = 0.5;
     private TimeSpan _timeSinceInput;
-    private double _coreFade = 1;   // 中心光核淡出系数
+    private double _coreFade = 1;
 
     /// <summary>当前存活的火星（测试/诊断用）。</summary>
     public IReadOnlyList<SparklerParticle> ActiveParticles => _sparks;
@@ -120,90 +123,62 @@ public sealed class SparklerEffect : IEffect
         double dt = Math.Clamp(delta.TotalSeconds, 0, 0.1);
         if (dt <= 0) return;
         _timeSinceInput += delta;
+        _corePhase += dt;
         bool stalled = IdleFade && InputStalled;
 
         // 中心光核淡出（断流时 0.5s 线性淡出，恢复立即回 1）
         double coreStall = _timeSinceInput.TotalSeconds - StallBeforeStop.TotalSeconds;
         _coreFade = !IdleFade || coreStall <= 0 ? 1 : Math.Max(0, 1 - coreStall / CoreFadeSeconds);
 
-        // 爆发—间歇节奏状态机
+        // 高密度连续发射：每帧 3~6 颗，与移动/静止无关，星芒轮廓始终饱满
         if (_hasMouse && !stalled)
         {
-            if (_burstRemain > 0)
-            {
-                double portion = Math.Min(1, dt / Math.Max(_burstRemain, 1e-4));
-                int emit = Math.Min(_burstEmitLeft, (int)Math.Ceiling(_burstEmitLeft * portion));
-                for (int i = 0; i < emit; i++)
-                    Emit();
-                _burstEmitLeft -= emit;
-                _burstRemain -= dt;
-                if (_burstRemain <= 0 || _burstEmitLeft <= 0)
-                {
-                    _burstRemain = 0;
-                    _restRemain = 0.06 + _random.NextDouble() * 0.12; // 短暂间歇 60~180ms
-                }
-            }
-            else
-            {
-                _restRemain -= dt;
-                if (_restRemain <= 0)
-                {
-                    _burstRemain = 0.05 + _random.NextDouble() * 0.05; // 爆发 50~100ms
-                    _burstEmitLeft = 8 + _random.Next(8);              // 8~15 颗
-                    BurstCycles++;
-                }
-            }
+            int count = EmitMinPerFrame + _random.Next(EmitMaxPerFrame - EmitMinPerFrame + 1);
+            for (int i = 0; i < count; i++)
+                Emit();
         }
 
-        // 物理 + 二次爆裂 + 寿命回收（倒序遍历）
+        // 物理 + 寿命终点分叉 + 回收（倒序遍历）
         for (int i = _sparks.Count - 1; i >= 0; i--)
         {
             var s = _sparks[i];
             s.Age += dt;
             if (s.Age >= s.Life)
             {
-                _sparks.RemoveAt(i);
+                if (!s.IsChild) Fork(s, i); // 分叉发生在飞行末端（寿命终点）
+                else _sparks.RemoveAt(i);
                 continue;
             }
-            if (Advance(ref s, dt))
-            {
-                SecondaryBurstCount++;
-                Burst(s, i);
-                continue;
-            }
+            Advance(ref s, dt);
             _sparks[i] = s;
         }
     }
 
     /// <summary>
-    /// 推进一颗火星的物理（纯函数，可测）：空气阻力指数衰减 + 极弱重力 + 位移积分；
-    /// 闪光点原地不动。返回该火星此帧是否应触发二次爆裂
-    /// （飞行 30~80px 或 80~150ms，先到者触发）。
+    /// 推进一颗火星的物理（纯函数，可测）：空气阻力指数衰减 + 极弱重力 + 位移积分。
     /// </summary>
-    public static bool Advance(ref SparklerParticle s, double dt)
+    public static void Advance(ref SparklerParticle s, double dt)
     {
-        if (s.IsFlash) return false;
-        double decay = Math.Exp(-Drag * dt);       // 空气阻力
+        double decay = Math.Exp(-Drag * dt);
         s.VX *= decay;
-        s.VY = s.VY * decay + Gravity * dt;        // 极弱重力
+        s.VY = s.VY * decay + Gravity * dt;
         s.X += s.VX * dt;
         s.Y += s.VY * dt;
-        s.DistanceTravelled += Math.Sqrt(s.VX * s.VX + s.VY * s.VY) * dt;
-        return !s.HasBurst && (s.DistanceTravelled >= s.BurstDistance || s.Age >= s.BurstAt);
     }
 
     public void Draw(DrawingContext dc)
     {
         if (!Enabled) return;
 
-        // 中心亮白光核 + 柔和辉光，随爆发节奏脉动（爆发时更亮更大）
+        // 中心过曝亮白光核（直径 10~20px 随脉动）+ 柔和辉光，全特效最亮
         if (_hasMouse && _coreFade > 0)
         {
-            double pulse = _burstRemain > 0 ? 1 : 0.55;
+            double pulse = 0.85 + 0.15 * Math.Sin(_corePhase * 7); // 轻微闪烁脉动
+            double coreR = (5 + 5 * pulse) * _coreFade;
             var corePos = new Point(_pos.X, _pos.Y);
             if (_coreFade < 1) dc.PushOpacity(_coreFade);
-            dc.DrawEllipse(GlowBrush, null, corePos, 6 + 4 * pulse, 6 + 4 * pulse);
-            dc.DrawEllipse(CoreBrush, null, corePos, 3 + 2 * pulse, 3 + 2 * pulse);
+            dc.DrawEllipse(GlowBrush, null, corePos, coreR * 2.2, coreR * 2.2);
+            dc.DrawEllipse(CoreBrush, null, corePos, coreR, coreR);
             if (_coreFade < 1) dc.Pop();
         }
 
@@ -211,76 +186,94 @@ public sealed class SparklerEffect : IEffect
         foreach (var s in _sparks)
         {
             double t = s.Age / s.Life;
-            int type = s.IsFlash ? FlashType : s.IsChild ? ChildType : ParentType;
-            int stage = Math.Min(StageCount - 1, (int)(t * StageCount));
-            double flicker = 0.875 + 0.125 * Math.Sin(s.FlickerPhase + s.Age * s.FlickerFreq);
-            double alpha = Math.Clamp((1 - t) * flicker, 0, 1);
+            double flicker = 0.85 + 0.15 * Math.Sin(s.FlickerPhase + s.Age * s.FlickerFreq);
+            // 球面纵深：中心层更亮，外层更暗
+            double alpha = Math.Clamp((1 - t) * flicker * LayerAlpha[s.Layer], 0, 1);
             int bucket = Math.Min(AlphaBuckets - 1, (int)(alpha * AlphaBuckets));
-            var pen = GetPen(type, stage, bucket);
 
-            // 沿速度方向的短亮线（速度≈0 或闪光点画 1px 点）
+            // 亮线方向：沿速度方向；速度≈0 时朝上
             double speed = Math.Sqrt(s.VX * s.VX + s.VY * s.VY);
             double ux, uy;
             if (speed < 1) { ux = 0; uy = -1; speed = 1; }
             else { ux = s.VX / speed; uy = s.VY / speed; }
-            double len = s.IsFlash ? 1 : Math.Clamp(speed * 0.008, 1, 5);
             var head = new Point(s.X, s.Y);
-            var tail = new Point(s.X - ux * len, s.Y - uy * len);
-            dc.DrawLine(pen, head, tail);
+            var tail = new Point(s.X - ux * s.RenderLength, s.Y - uy * s.RenderLength);
+
+            if (s.IsChild)
+            {
+                // 子亮线：更短更细，单段
+                dc.DrawLine(GetChildPen(s.ColorTier, bucket, s.Layer), head, tail);
+                continue;
+            }
+
+            // 母亮线：分两段近似"由亮渐暗"——头侧亮段 + 尾侧暗段
+            var mid = new Point(s.X - ux * s.RenderLength * 0.45, s.Y - uy * s.RenderLength * 0.45);
+            int dimBucket = Math.Max(0, bucket * 45 / 100);
+            dc.DrawLine(GetLinePen(s.ColorTier, SegBright, bucket, s.Layer), head, mid);
+            dc.DrawLine(GetLinePen(s.ColorTier, SegDim, dimBucket, s.Layer), mid, tail);
+
+            // 白热火星头（线末端更亮的亮点）
+            int headBucket = Math.Min(AlphaBuckets - 1, (int)(Math.Min(1, alpha * 1.4) * AlphaBuckets));
+            var headTip = new Point(s.X - ux * 1.5, s.Y - uy * 1.5);
+            dc.DrawLine(GetHeadPen(headBucket), head, headTip);
         }
     }
 
-    /// <summary>发射一颗母火星：360° 均匀方向，初速 700~1400 px/s，几乎不受鼠标运动影响。</summary>
+    /// <summary>
+    /// 发射一颗母火星：360° 均匀方向；速度幂律分布（大量低速聚集中心、少量高速射向外围，
+    /// 形成球形投影的中心密度感），并按速度归入球面纵深层。
+    /// </summary>
     private void Emit()
     {
+        double k = Size / BaseSize;
         double angle = _random.NextDouble() * Math.PI * 2;
-        double speed = 700 + _random.NextDouble() * 700;
+        double t = _random.NextDouble();
+        double baseSpeed = 600 + 600 * Math.Pow(t, 1.8);  // 幂律偏置：中位速度明显低于均匀分布
+        double lt = Math.Clamp((baseSpeed - 600) / 600, 0, 1);
+        int layer = lt < 0.33 ? 0 : lt < 0.66 ? 1 : 2;    // 慢=中心层（亮粗），快=外层（暗细）
         EmittedTotal++;
         Add(new SparklerParticle
         {
             X = _pos.X + (_random.NextDouble() - 0.5) * 2,
             Y = _pos.Y + (_random.NextDouble() - 0.5) * 2,
-            VX = Math.Cos(angle) * speed,
-            VY = Math.Sin(angle) * speed,
-            Life = 0.45,                                     // 兜底寿命（正常先二次爆裂）
-            BurstAt = 0.08 + _random.NextDouble() * 0.07,    // 80~150ms
-            BurstDistance = 30 + _random.NextDouble() * 50,  // 30~80px
+            VX = Math.Cos(angle) * baseSpeed * k,
+            VY = Math.Sin(angle) * baseSpeed * k,
+            Life = 0.3 + _random.NextDouble() * 0.3,                    // 0.3~0.6s
+            RenderLength = (15 + _random.NextDouble() * 45) * k,        // 15~60px × 缩放
+            ColorTier = _random.Next(ColorTiers),
+            Layer = layer,
             FlickerPhase = _random.NextDouble() * Math.PI * 2,
-            FlickerFreq = 15 + _random.NextDouble() * 20,
+            FlickerFreq = 10 + _random.NextDouble() * 15,
         });
     }
 
-    /// <summary>二次爆裂：移除母火星，原地炸出 2~4 颗更快更细的子火星 + 1 个亮白闪光点。</summary>
-    private void Burst(SparklerParticle parent, int index)
+    /// <summary>寿命终点末端分叉：在火星头位置叉出 2~3 根更短更细的子亮线（小叉冠状），母火星熄灭。</summary>
+    private void Fork(SparklerParticle parent, int index)
     {
+        ForkCount++;
         _sparks.RemoveAt(index);
-        int n = 2 + _random.Next(3); // 2~4 颗
-        double parentSpeed = Math.Sqrt(parent.VX * parent.VX + parent.VY * parent.VY);
+        int n = 2 + _random.Next(2); // 2~3 根
+        double parentAngle = Math.Atan2(parent.VY, parent.VX);
+        double k = Size / BaseSize;
         for (int i = 0; i < n; i++)
         {
-            double angle = _random.NextDouble() * Math.PI * 2;
-            double speed = Math.Min(2000, parentSpeed * (1.15 + _random.NextDouble() * 0.3)); // 更快
+            double angle = parentAngle + (_random.NextDouble() - 0.5) * 2 * 1.22; // ±70° 小叉冠
+            double speed = (300 + _random.NextDouble() * 300) * k;
             Add(new SparklerParticle
             {
                 X = parent.X,
                 Y = parent.Y,
                 VX = Math.Cos(angle) * speed,
                 VY = Math.Sin(angle) * speed,
-                Life = 0.1 + _random.NextDouble() * 0.1,  // 100~200ms
+                Life = 0.1 + _random.NextDouble() * 0.05,                 // 100~150ms
+                RenderLength = (5 + _random.NextDouble() * 10) * k,       // 5~15px × 缩放
                 IsChild = true,
-                HasBurst = true,                          // 子火星不再爆裂
+                ColorTier = parent.ColorTier,
+                Layer = parent.Layer,
                 FlickerPhase = _random.NextDouble() * Math.PI * 2,
-                FlickerFreq = 20 + _random.NextDouble() * 20,
+                FlickerFreq = 15 + _random.NextDouble() * 15,
             });
         }
-        Add(new SparklerParticle                           // 爆裂瞬间亮白闪光点
-        {
-            X = parent.X,
-            Y = parent.Y,
-            Life = 0.06 + _random.NextDouble() * 0.04,     // 60~100ms
-            IsFlash = true,
-            HasBurst = true,
-        });
     }
 
     private void Add(SparklerParticle spark)
@@ -289,39 +282,60 @@ public sealed class SparklerEffect : IEffect
         _sparks.Add(spark);
     }
 
-    private Pen GetPen(int type, int stage, int bucket)
+    private Pen GetLinePen(int tier, int segment, int bucket, int layer)
     {
-        var pen = _pens[type, stage, bucket];
+        var pen = _linePens[tier, segment, bucket, layer];
         if (pen == null)
         {
-            // 闪光点恒为亮白；母/子火星走固定色阶（蓝白→纯白→黄白→橙红余烬）
-            var color = type == FlashType ? Colors.White : LifeColor((stage + 0.5) / StageCount);
-            double alpha = (bucket + 0.5) / AlphaBuckets;
-            pen = new Pen(new SolidColorBrush(Color.FromArgb(
-                (byte)Math.Round(alpha * 255), color.R, color.G, color.B)), TypeThickness[type]);
-            pen.Freeze();
-            _pens[type, stage, bucket] = pen;
+            pen = CreatePen(LineColor(tier), bucket, 1.6 * LayerWidth[layer]);
+            _linePens[tier, segment, bucket, layer] = pen;
         }
         return pen;
     }
 
-    /// <summary>
-    /// 固定颜色生命周期（纯函数，可测）：蓝白 → 纯白 → 黄白；
-    /// 寿命最后 20% 渐隐过渡到暗淡的橙红色余烬再消失。
-    /// </summary>
-    public static Color LifeColor(double t) => t switch
+    private Pen GetChildPen(int tier, int bucket, int layer)
     {
-        < 0.3 => Lerp(BlueWhite, Colors.White, t / 0.3),
-        < 0.6 => Lerp(Colors.White, WarmWhite, (t - 0.3) / 0.3),
-        < EmberStart => WarmWhite,
-        < 0.9 => Lerp(WarmWhite, Ember, (t - EmberStart) / 0.1),
-        _ => Lerp(Ember, EmberDark, (t - 0.9) / 0.1),
-    };
+        var pen = _childPens[tier, bucket, layer];
+        if (pen == null)
+        {
+            pen = CreatePen(LineColor(tier), bucket, 1.0 * LayerWidth[layer]); // 子亮线更细
+            _childPens[tier, bucket, layer] = pen;
+        }
+        return pen;
+    }
 
-    private static Color Lerp(Color a, Color b, double t) => Color.FromRgb(
-        (byte)Math.Round(a.R + (b.R - a.R) * t),
-        (byte)Math.Round(a.G + (b.G - a.G) * t),
-        (byte)Math.Round(a.B + (b.B - a.B) * t));
+    private Pen GetHeadPen(int bucket)
+    {
+        var pen = _headPens[bucket];
+        if (pen == null)
+        {
+            pen = CreatePen(HotHead, bucket, 2.2); // 白热火星头更粗更亮
+            _headPens[bucket] = pen;
+        }
+        return pen;
+    }
+
+    private static Pen CreatePen(Color color, int bucket, double thickness)
+    {
+        double alpha = (bucket + 0.5) / AlphaBuckets;
+        var pen = new Pen(new SolidColorBrush(Color.FromArgb(
+            (byte)Math.Round(alpha * 255), color.R, color.G, color.B)), thickness);
+        pen.Freeze();
+        return pen;
+    }
+
+    /// <summary>
+    /// 亮线颜色（纯函数，可测）：深橙→近白金区间离散为 6 档
+    /// （#FF8A2A 深橙 ~ #FFE6A8 近白金）；火星头固定白热 #FFF3D0。
+    /// </summary>
+    public static Color LineColor(int tier)
+    {
+        double t = Math.Clamp(tier, 0, ColorTiers - 1) / (double)(ColorTiers - 1);
+        return Color.FromRgb(
+            (byte)Math.Round(Amber.R + (Gold.R - Amber.R) * t),
+            (byte)Math.Round(Amber.G + (Gold.G - Amber.G) * t),
+            (byte)Math.Round(Amber.B + (Gold.B - Amber.B) * t));
+    }
 
     private static Brush Freeze(Brush brush)
     {

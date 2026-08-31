@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 using MouseFx.Effects;
+using MouseFx.Platform;
 
 namespace MouseFx.Overlay;
 
@@ -22,9 +23,19 @@ public partial class OverlayWindow : Window
 
     private readonly EffectManager _manager;
     private readonly Action<bool>? _onRenderModeChanged;
+    private readonly FullscreenDetector _fullscreenDetector = new();
     private Matrix? _transformFromDevice;
     private DateTime _lastFrame;
+    private DateTime _lastFullscreenCheck = DateTime.MinValue;
+    private bool _isForegroundFullscreen;
+    private double _fullscreenFade = 1;   // 全屏淡出系数（1=正常，0=完全隐藏）
     private RenderMode _lastRenderMode = RenderMode.Default;
+
+    private static readonly TimeSpan FullscreenCheckInterval = TimeSpan.FromMilliseconds(200);
+    private const double FullscreenFadeSeconds = 0.4;
+
+    /// <summary>前台强制全屏（游戏）时自动隐藏特效；退出全屏后恢复。</summary>
+    public bool FadeOnFullscreen { get; set; } = true;
 
     /// <param name="manager">特效管理器。</param>
     /// <param name="onRenderModeChanged">渲染模式切换回调（参数：是否软件渲染），供特效调整密度。</param>
@@ -94,6 +105,16 @@ public partial class OverlayWindow : Window
         var delta = _lastFrame == default ? TimeSpan.Zero : now - _lastFrame;
         _lastFrame = now;
 
+        // 强制全屏检测（节流 200ms）：全屏游戏时特效整体淡出，退出后恢复
+        if (FadeOnFullscreen && now - _lastFullscreenCheck >= FullscreenCheckInterval)
+        {
+            _lastFullscreenCheck = now;
+            _isForegroundFullscreen = _fullscreenDetector.IsForegroundFullscreen();
+        }
+        double target = !FadeOnFullscreen || !_isForegroundFullscreen ? 1 : 0;
+        double maxStep = delta.TotalSeconds / FullscreenFadeSeconds;
+        _fullscreenFade += Math.Clamp(target - _fullscreenFade, -maxStep, maxStep);
+
         _manager.UpdateAll(delta);
         InvalidateVisual();
     }
@@ -102,6 +123,9 @@ public partial class OverlayWindow : Window
     {
         // 透明窗口每帧必须重画全部内容：先清屏再画特效
         dc.DrawRectangle(Brushes.Transparent, null, new Rect(RenderSize));
+        if (_fullscreenFade <= 0) return; // 全屏隐藏中，只清屏
+        if (_fullscreenFade < 1) dc.PushOpacity(_fullscreenFade);
         _manager.DrawAll(dc);
+        if (_fullscreenFade < 1) dc.Pop();
     }
 }

@@ -14,6 +14,7 @@
             <ComboBoxItem Content="仙女棒"/>
         </ComboBox>
         <CheckBox x:Name="IdleFadeToggle" Content="静止时淡出（鼠标不动 2 秒后隐藏特效）" Margin="0,0,0,4"/>
+        <CheckBox x:Name="FullscreenToggle" Content="全屏游戏时自动隐藏特效" Margin="0,0,0,4"/>
         <CheckBox x:Name="AutoStartToggle" Content="开机自启动" Margin="0,0,0,0"/>
         <Separator Margin="0,14,0,12"/>
 
@@ -36,6 +37,22 @@
                 </StackPanel>
                 <Slider x:Name="HueSlider" Grid.Column="1" Minimum="0" Maximum="360" VerticalAlignment="Center" IsMoveToPointEnabled="True"/>
                 <TextBlock x:Name="HueValue" Grid.Column="2" TextAlignment="Right" VerticalAlignment="Center"/>
+            </Grid>
+
+            <!-- 扩散形状 -->
+            <Grid Margin="0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="70"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="扩散形状" VerticalAlignment="Center"/>
+                <ComboBox x:Name="RippleShapeBox" Grid.Column="1" Margin="0,0,8,0" Padding="4,2"
+                          VerticalAlignment="Center">
+                    <ComboBoxItem Content="圆圈"/>
+                    <ComboBoxItem Content="爱心"/>
+                    <ComboBoxItem Content="星星"/>
+                </ComboBox>
             </Grid>
 
             <!-- 光圈大小 -->
@@ -73,22 +90,6 @@
                 <TextBlock Text="点击扩散大小" VerticalAlignment="Center"/>
                 <Slider x:Name="RippleSlider" Grid.Column="1" Minimum="20" Maximum="150" VerticalAlignment="Center" IsMoveToPointEnabled="True"/>
                 <TextBlock x:Name="RippleValue" Grid.Column="2" TextAlignment="Right" VerticalAlignment="Center"/>
-            </Grid>
-
-            <!-- 扩散形状 -->
-            <Grid Margin="0,6">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="80"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="70"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="扩散形状" VerticalAlignment="Center"/>
-                <ComboBox x:Name="RippleShapeBox" Grid.Column="1" Margin="0,0,8,0" Padding="4,2"
-                          VerticalAlignment="Center">
-                    <ComboBoxItem Content="圆圈"/>
-                    <ComboBoxItem Content="爱心"/>
-                    <ComboBoxItem Content="星星"/>
-                </ComboBox>
             </Grid>
 
             <!-- 跟随速度 -->
@@ -136,9 +137,22 @@
                     <ColumnDefinition Width="70"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="粒子数量" VerticalAlignment="Center"/>
-                <Slider x:Name="SparkCountSlider" Grid.Column="1" Minimum="50" Maximum="400" IsMoveToPointEnabled="True"
+                <Slider x:Name="SparkCountSlider" Grid.Column="1" Minimum="50" Maximum="600" IsMoveToPointEnabled="True"
                         VerticalAlignment="Center"/>
                 <TextBlock x:Name="SparkCountValue" Grid.Column="2" TextAlignment="Right" VerticalAlignment="Center"/>
+            </Grid>
+
+            <!-- 火花生命 -->
+            <Grid Margin="0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="70"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="火花生命" VerticalAlignment="Center"/>
+                <Slider x:Name="SparkLifeSlider" Grid.Column="1" Minimum="0.4" Maximum="2.5" SmallChange="0.1" IsMoveToPointEnabled="True"
+                        VerticalAlignment="Center"/>
+                <TextBlock x:Name="SparkLifeValue" Grid.Column="2" TextAlignment="Right" VerticalAlignment="Center"/>
             </Grid>
 
             <Button x:Name="SparkResetButton" Content="恢复默认" HorizontalAlignment="Right"
@@ -158,9 +172,22 @@
                     <ColumnDefinition Width="70"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="粒子数量" VerticalAlignment="Center"/>
-                <Slider x:Name="SparklerCountSlider" Grid.Column="1" Minimum="100" Maximum="600" IsMoveToPointEnabled="True"
+                <Slider x:Name="SparklerCountSlider" Grid.Column="1" Minimum="100" Maximum="800" IsMoveToPointEnabled="True"
                         VerticalAlignment="Center"/>
                 <TextBlock x:Name="SparklerCountValue" Grid.Column="2" TextAlignment="Right" VerticalAlignment="Center"/>
+            </Grid>
+
+            <!-- 星芒直径 -->
+            <Grid Margin="0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="70"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="星芒直径" VerticalAlignment="Center"/>
+                <Slider x:Name="SparklerSizeSlider" Grid.Column="1" Minimum="80" Maximum="500" IsMoveToPointEnabled="True"
+                        VerticalAlignment="Center"/>
+                <TextBlock x:Name="SparklerSizeValue" Grid.Column="2" TextAlignment="Right" VerticalAlignment="Center"/>
             </Grid>
 
             <Button x:Name="SparklerResetButton" Content="恢复默认" HorizontalAlignment="Right"
