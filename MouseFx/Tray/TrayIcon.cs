@@ -1,51 +1,63 @@
 using System.Drawing;
 using System.Reflection;
-using System.Windows.Forms;
+using System.Windows.Forms; // NotifyIcon：WPF 没有托盘组件，用 WinForms 只做"图标宿主"，菜单本身是 WPF 的
+using Wpf.Ui.Controls;
+
 // 注意：Color 已由全局别名指向 System.Windows.Media.Color，这里需要 Drawing 的 Color 时全限定
 
 namespace MouseFx.Tray;
 
 /// <summary>
-/// 系统托盘图标。左键/右键都弹出同一菜单；菜单只含「设置…」与「退出」。
-/// 特效开关与开机自启动均已收纳到设置窗口。
+/// 系统托盘图标。左键/右键都弹出同一菜单；菜单只含「设置」与「退出」。
+/// 菜单为 WPF ContextMenu，由 WPF-UI 的 Fluent 隐式样式渲染，跟随应用亮暗主题。
 /// </summary>
 public sealed class TrayIcon : IDisposable
 {
     private readonly NotifyIcon _icon;
+    private readonly System.Windows.Controls.ContextMenu _menu;
 
     public TrayIcon(Action openSettings)
     {
-        var settingsItem = new ToolStripMenuItem("设置");
+        var settingsItem = new System.Windows.Controls.MenuItem
+        {
+            Header = "设置",
+            Icon = new SymbolIcon { Symbol = SymbolRegular.Settings20 },
+        };
         settingsItem.Click += (_, _) => openSettings();
 
-        var menu = new ContextMenuStrip();
-        menu.Items.Add(settingsItem);
-        menu.Items.Add(new ToolStripSeparator());
-        var exitItem = new ToolStripMenuItem("退出");
+        var exitItem = new System.Windows.Controls.MenuItem
+        {
+            Header = "退出",
+            Icon = new SymbolIcon { Symbol = SymbolRegular.Power20 },
+        };
         exitItem.Click += (_, _) => System.Windows.Application.Current.Shutdown();
-        menu.Items.Add(exitItem);
+
+        _menu = new System.Windows.Controls.ContextMenu();
+        _menu.Items.Add(settingsItem);
+        _menu.Items.Add(new System.Windows.Controls.Separator());
+        _menu.Items.Add(exitItem);
 
         _icon = new NotifyIcon
         {
             Icon = CreateIcon(),
             Text = "萤火鼠",
-            ContextMenuStrip = menu,
             Visible = true,
         };
-        // 左键单击与右键一致：弹出同一菜单
+        // 左键与右键一致：在光标处弹出同一 Fluent 菜单
         _icon.MouseUp += (_, e) =>
         {
-            if (e.Button == MouseButtons.Left) ShowContextMenu();
+            if (e.Button is MouseButtons.Left or MouseButtons.Right)
+                ShowContextMenu();
         };
     }
 
     public void Show() { /* 已在构造函数中置 Visible=true */ }
 
-    /// <summary>弹出托盘菜单（NotifyIcon.ShowContextMenu 是私有方法，经反射调用）。</summary>
+    /// <summary>在光标处弹出菜单（托盘没有 WPF 定位锚点，用 MousePoint）。</summary>
     private void ShowContextMenu()
     {
-        typeof(NotifyIcon).GetMethod("ShowContextMenu", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(_icon, null);
+        _menu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
+        _menu.IsOpen = true;
     }
 
     /// <summary>加载内嵌的应用图标（app.ico，随 csproj 以 Resource 打包）。</summary>
@@ -60,5 +72,6 @@ public sealed class TrayIcon : IDisposable
     {
         _icon.Visible = false;
         _icon.Dispose();
+        _menu.IsOpen = false;
     }
 }

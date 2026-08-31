@@ -1,8 +1,17 @@
 <Application x:Class="MouseFx.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
-
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- WPF-UI：Fluent 控件隐式样式与主题刷（顺序敏感：token 必须在其后覆盖） -->
+                <ui:ThemesDictionary Theme="Light"/>
+                <ui:ControlsDictionary/>
+                <!-- 项目设计 token（亮暗两本，键名一致；运行时由 ApplyThemeTokens 整本替换） -->
+                <ResourceDictionary Source="Styles/Tokens.Light.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

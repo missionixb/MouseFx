@@ -6,7 +6,7 @@ using MouseFx.Platform;
 
 namespace MouseFx.Settings;
 
-public partial class SettingsWindow : Window
+public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
 {
     private readonly AppSettings _settings;
     private readonly GlowEffect _glow;
@@ -39,10 +39,8 @@ public partial class SettingsWindow : Window
         SparkLifeSlider.Value = settings.SparkLife;
         SparklerCountSlider.Value = settings.SparklerCount;
         SparklerSizeSlider.Value = settings.SparklerSize;
-        // 分段选择器（RadioButton 组）代替旧下拉框
-        ModeClassic.IsChecked = settings.EffectMode == EffectMode.Classic;
-        ModeSpark.IsChecked = settings.EffectMode == EffectMode.Spark;
-        ModeSparkler.IsChecked = settings.EffectMode == EffectMode.Sparkler;
+        // 分段选择器：项由 EffectModeRegistry 驱动（新增模式自动出现），初始选中在 Loaded 后设置
+        ModeSelector.ItemsSource = EffectModeRegistry.Modes;
         IdleFadeToggle.IsChecked = settings.IdleFade;
         FullscreenToggle.IsChecked = overlay.FadeOnFullscreen;
         AutoStartToggle.IsChecked = autoStart.IsEnabled;
@@ -84,9 +82,6 @@ public partial class SettingsWindow : Window
             SparklerCountSlider.Value = d.SparklerCount;
             SparklerSizeSlider.Value = d.SparklerSize;
         };
-        ModeClassic.Checked += (_, _) => ApplyMode(EffectMode.Classic);
-        ModeSpark.Checked += (_, _) => ApplyMode(EffectMode.Spark);
-        ModeSparkler.Checked += (_, _) => ApplyMode(EffectMode.Sparkler);
         IdleFadeToggle.Click += (_, _) =>
         {
             _glow.IdleFade = IdleFadeToggle.IsChecked == true;
@@ -160,6 +155,40 @@ public partial class SettingsWindow : Window
         _service.Save(_settings);
     }
 
+    /// <summary>分段选择器就绪后：设置等宽列数，并按当前设置选中对应模式。</summary>
+    private void ModeSelector_Loaded(object sender, RoutedEventArgs e)
+    {
+        ModeSelector.Loaded -= ModeSelector_Loaded;
+        if (FindVisualChild<System.Windows.Controls.Primitives.UniformGrid>(ModeSelector) is { } grid)
+            grid.Columns = EffectModeRegistry.Modes.Count;
+        foreach (var container in ModeSelector.Items.OfType<object>()
+                     .Select(ModeSelector.ItemContainerGenerator.ContainerFromItem)
+                     .OfType<System.Windows.Controls.RadioButton>())
+        {
+            if (container.Tag is EffectModeInfo info)
+                container.IsChecked = info.Mode == _settings.EffectMode;
+        }
+    }
+
+    private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, i);
+            if (child is T match) return match;
+            var result = FindVisualChild<T>(child);
+            if (result != null) return result;
+        }
+        return null;
+    }
+
+    /// <summary>分段选择器点击：切换到目标模式（Tag 为 EffectModeInfo）。</summary>
+    private void ModeItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.RadioButton { Tag: EffectModeInfo info })
+            ApplyMode(info.Mode);
+    }
+
     /// <summary>
     /// 模式对应的界面状态：只显示当前模式的参数卡片，并更新模式说明。
     /// 窗口高度为 SizeToContent，随卡片显隐自动伸缩。
@@ -169,12 +198,7 @@ public partial class SettingsWindow : Window
         ClassicPanel.Visibility = mode == EffectMode.Classic ? Visibility.Visible : Visibility.Collapsed;
         SparkPanel.Visibility = mode == EffectMode.Spark ? Visibility.Visible : Visibility.Collapsed;
         SparklerPanel.Visibility = mode == EffectMode.Sparkler ? Visibility.Visible : Visibility.Collapsed;
-        ModeDescription.Text = mode switch
-        {
-            EffectMode.Spark => "细小的火星沿轨迹迸落，带着重力下坠",
-            EffectMode.Sparkler => "星芒自光标向四周绽放，像手持烟花",
-            _ => "柔和光晕跟随光标，点击时荡开涟漪",
-        };
+        ModeDescription.Text = EffectModeRegistry.DescriptionOf(mode);
     }
 
     /// <summary>火屑参数：独立颜色 + 粒子上限 + 生命，同步到设置与特效并保存。</summary>

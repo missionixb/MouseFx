@@ -27,6 +27,9 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        ApplySystemTheme(); // 跟随系统亮暗主题（含 token 字典整本替换）
+        Wpf.Ui.Appearance.ApplicationThemeManager.Changed += (theme, _) => ApplyThemeTokens(theme);
+
         // 首次运行默认开启开机自启动；之后菜单状态只反映注册表真实状态
         if (!_autoStart.IsConfigured)
             _autoStart.Enable();
@@ -58,6 +61,7 @@ public partial class App : Application
         });
         _overlay.FadeOnFullscreen = _settings!.HideOnFullscreen;
         _overlay.Show();
+        Wpf.Ui.Appearance.SystemThemeWatcher.Watch(_overlay); // 系统切换亮暗时自动应用（触发上面的 token 替换）
 
         _hook = new MouseHook();
         _hook.MouseMove += devicePoint => Dispatcher.BeginInvoke(
@@ -76,6 +80,29 @@ public partial class App : Application
 
         var tray = new TrayIcon(OpenSettings);
         tray.Show();
+    }
+
+    /// <summary>按系统亮暗应用 Fluent 主题（Mica 底）。</summary>
+    private void ApplySystemTheme()
+    {
+        var sys = Wpf.Ui.Appearance.ApplicationThemeManager.GetSystemTheme();
+        var theme = sys == Wpf.Ui.Appearance.SystemTheme.Dark
+            ? Wpf.Ui.Appearance.ApplicationTheme.Dark
+            : Wpf.Ui.Appearance.ApplicationTheme.Light;
+        Wpf.Ui.Appearance.ApplicationThemeManager.Apply(theme, Wpf.Ui.Controls.WindowBackdropType.Mica);
+        ApplyThemeTokens(theme);
+    }
+
+    /// <summary>主题变化时整本替换项目 token 字典（Tokens.Light/Dark 键名一致，DynamicResource 自动刷新）。</summary>
+    private void ApplyThemeTokens(Wpf.Ui.Appearance.ApplicationTheme theme)
+    {
+        var md = Resources.MergedDictionaries;
+        var uri = new Uri($"Styles/Tokens.{(theme == Wpf.Ui.Appearance.ApplicationTheme.Dark ? "Dark" : "Light")}.xaml", UriKind.Relative);
+        var fresh = new ResourceDictionary { Source = uri };
+        var old = md.FirstOrDefault(d => d.Source?.OriginalString.Contains("Tokens.") == true);
+        int index = old != null ? md.IndexOf(old) : md.Count;
+        if (old != null) md.Remove(old);
+        md.Insert(index, fresh);
     }
 
     private void ApplySettingsToEffects()
