@@ -141,6 +141,9 @@ public sealed class SparklerEffect : IEffect
     /// <summary>当前存活的火星（测试/诊断用）。</summary>
     public IReadOnlyList<SparklerParticle> ActiveParticles => _sparks;
 
+    /// <summary>是否有可见画面（存活火星或中心光核）。</summary>
+    public bool HasVisual => _sparks.Count > 0 || (_hasMouse && _coreFade > 0);
+
     /// <summary>输入是否处于断流状态（测试/诊断用）。</summary>
     public bool InputStalled => _timeSinceInput > StallBeforeStop;
 
@@ -152,8 +155,11 @@ public sealed class SparklerEffect : IEffect
     public void OnMouseDown(Point position)
     {
         _timeSinceInput = TimeSpan.Zero;
-        RadialImpulse(position); // 点击语义：画面里已有的粒子先被炸飞
+        // 开关关闭 = 点击对本特效零影响：无冲量、无爆发窗口、无闪光、无爆发粒子，
+        // 判断必须在入口处一次性拦掉全部点击行为
         if (!ClickBurstEnabled) return;
+
+        RadialImpulse(position); // 点击语义：画面里已有的粒子先被炸飞
 
         _burstWindow = BurstWindowSeconds;
         // 星芒轮廓瞬间扩大一圈：以点击点为中心 360° 炸开爆发粒子（金色针状亮线 + 白热头），

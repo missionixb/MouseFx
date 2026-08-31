@@ -116,4 +116,18 @@ public class GlowEffectTests
 
         Assert.Equal(1, effect.InputFade); // IdleFade 关闭 → 永不淡出
     }
+
+    [Fact]
+    public void HasVisual跟随鼠标出现并在淡出后消失()
+    {
+        var glow = new GlowEffect { Enabled = true };
+        Assert.False(glow.HasVisual); // 从未收到鼠标位置
+
+        glow.OnMouseMove(new Point(0, 0));
+        Assert.True(glow.HasVisual);
+
+        for (int i = 0; i < 200; i++) // 断流 3.2s：淡出完成
+            glow.Update(TimeSpan.FromMilliseconds(16));
+        Assert.False(glow.HasVisual);
+    }
 }

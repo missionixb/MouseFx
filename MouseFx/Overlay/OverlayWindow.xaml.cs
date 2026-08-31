@@ -30,6 +30,10 @@ public partial class OverlayWindow : Window
     private bool _isForegroundFullscreen;
     private double _fullscreenFade = 1;   // 全屏淡出系数（1=正常，0=完全隐藏）
     private RenderMode _lastRenderMode = RenderMode.Default;
+    private bool _needsClear;             // 停止渲染前是否还需清一帧残影
+
+    /// <summary>渲染帧率上限（30~144）。物理 delta 按真实时间累积，限帧只省渲染、不影响运动速度。</summary>
+    public double TargetFps { get; set; } = 144;
 
     private static readonly TimeSpan FullscreenCheckInterval = TimeSpan.FromMilliseconds(200);
     private const double FullscreenFadeSeconds = 0.4;
@@ -102,7 +106,13 @@ public partial class OverlayWindow : Window
     private void OnRendering(object? sender, EventArgs e)
     {
         var now = DateTime.Now;
-        var delta = _lastFrame == default ? TimeSpan.Zero : now - _lastFrame;
+        bool firstFrame = _lastFrame == default;
+        var delta = firstFrame ? TimeSpan.Zero : now - _lastFrame;
+
+        // 渲染帧率上限：未到下一拍直接跳过（_lastFrame 不更新，物理 delta 会累积，
+        // 运动速度不受限帧影响；跳过的帧只有取时间戳的成本）。首帧必须放行，
+        // 否则 delta 恒为 0、永远跳过——画面一帧都画不出来
+        if (!firstFrame && delta.TotalMilliseconds < 1000.0 / TargetFps - 0.5) return;
         _lastFrame = now;
 
         // 强制全屏检测（节流 200ms）：全屏游戏时特效整体淡出，退出后恢复
@@ -116,7 +126,13 @@ public partial class OverlayWindow : Window
         _fullscreenFade += Math.Clamp(target - _fullscreenFade, -maxStep, maxStep);
 
         _manager.UpdateAll(delta);
+
+        // 脏标记：无任何可见内容时不重绘——144Hz 全屏重绘是空闲 CPU 的大头。
+        // 停止渲染前先重绘一帧清掉残影，之后画面完全静止（_needsClear 复位）
+        bool shouldRender = _manager.HasVisual && _fullscreenFade > 0;
+        if (!shouldRender && !_needsClear) return;
         InvalidateVisual();
+        _needsClear = !shouldRender;
     }
 
     protected override void OnRender(DrawingContext dc)

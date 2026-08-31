@@ -88,6 +88,21 @@
                         </StackPanel>
                         <ui:ToggleSwitch x:Name="AutoStartToggle" Grid.Column="1" VerticalAlignment="Center"/>
                     </Grid>
+
+                    <!-- 渲染帧率（全局，与模式无关） -->
+                    <StackPanel Margin="0,12,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="96"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="64"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="渲染帧率" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="FpsSlider" Grid.Column="1" Minimum="30" Maximum="144" IsMoveToPointEnabled="True"/>
+                            <TextBlock x:Name="FpsValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
+                        </Grid>
+                        <TextBlock Text="越高拖尾越顺滑（跟手），越低越省 CPU" Style="{StaticResource Secondary}" Margin="0,4,0,0"/>
+                    </StackPanel>
                 </StackPanel>
             </Border>
 
@@ -147,6 +162,18 @@
                         <Slider x:Name="OpacitySlider" Grid.Column="1" Minimum="0.05" Maximum="1"
                                 SmallChange="0.05" LargeChange="0.1" IsMoveToPointEnabled="True"/>
                         <TextBlock x:Name="OpacityValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
+                    </Grid>
+
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="点击涟漪" Style="{StaticResource RowLabel}"/>
+                            <TextBlock Text="左键点击时显示扩散涟漪" Style="{StaticResource Secondary}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                        <ui:ToggleSwitch x:Name="RippleClickToggle" Grid.Column="1" VerticalAlignment="Center"/>
                     </Grid>
 
                     <Grid Margin="0,12,0,0">

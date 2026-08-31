@@ -31,6 +31,8 @@ public class SettingsServiceTests
         Assert.Equal(80, s.SparklerSize);
         Assert.True(s.SparkClickBurst);     // 点击爆裂默认开
         Assert.True(s.SparklerClickBurst);
+        Assert.True(s.RippleClickEnabled);  // 光圈点击涟漪默认开（三个点击开关互相独立）
+        Assert.Equal(144, s.RenderFps);     // 渲染帧率默认跟随 144Hz 上限
     }
 
     [Fact]
@@ -60,6 +62,8 @@ public class SettingsServiceTests
                 FollowSpeed = 80,
                 SparkClickBurst = false,
                 SparklerClickBurst = false,
+                RippleClickEnabled = false,
+                RenderFps = 60,
             };
             service.Save(s);
 
@@ -82,6 +86,8 @@ public class SettingsServiceTests
             Assert.Equal(80, loaded.FollowSpeed);
             Assert.False(loaded.SparkClickBurst);       // 开关持久化
             Assert.False(loaded.SparklerClickBurst);
+            Assert.False(loaded.RippleClickEnabled);
+            Assert.Equal(60, loaded.RenderFps);
         }
         finally
         {

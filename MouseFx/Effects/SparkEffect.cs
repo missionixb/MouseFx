@@ -112,12 +112,17 @@ public sealed class SparkEffect : IEffect
     /// <summary>当前存活的火星（测试/诊断用）。</summary>
     public IReadOnlyList<Spark> ActiveSparks => _sparks;
 
+    /// <summary>是否有可见画面（存活火星或中心闪光）。</summary>
+    public bool HasVisual => _sparks.Count > 0 || _flashRemaining > 0;
+
     public void OnMouseDown(Point position)
     {
         _timeSinceInput = TimeSpan.Zero;
-        RadialImpulse(position); // 点击语义：画面里已有的火星先被炸飞
+        // 开关关闭 = 点击对本特效零影响：无冲量、无爆发窗口、无闪光、无爆发粒子，
+        // 判断必须在入口处一次性拦掉全部点击行为
         if (!ClickBurstEnabled) return;
 
+        RadialImpulse(position); // 点击语义：画面里已有的火星先被炸飞
         _burstWindow = BurstWindowSeconds;
         SpawnClickBurst(position);
     }

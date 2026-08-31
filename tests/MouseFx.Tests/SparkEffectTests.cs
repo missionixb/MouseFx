@@ -206,15 +206,22 @@ public class SparkEffectTests
     }
 
     [Fact]
-    public void 关闭点击爆裂后点击无爆发无闪光()
+    public void 关闭点击爆裂后点击零影响()
     {
         var effect = new SparkEffect(new Random(3)) { Enabled = true, ClickBurstEnabled = false };
-        effect.OnMouseDown(new Point(10, 10));
-        effect.Update(Frame());
+        effect.OnMouseMove(new Point(0, 0));
+        effect.Update(Frame()); // 先有常态火星
+        var before = effect.ActiveSparks[0];
 
-        Assert.DoesNotContain(effect.ActiveSparks, s => s.IsBurst);
+        effect.OnMouseDown(new Point(200, 0)); // 点击点在右侧：若冲量泄漏，火星会被推向 +X
+        var after = effect.ActiveSparks[0];
+
+        Assert.DoesNotContain(effect.ActiveSparks, s => s.IsBurst); // 不生成爆炸粒子
         Assert.Equal(0, effect.ClickBurstTotal);
-        Assert.Equal(0, effect.FlashRemaining);
+        Assert.Equal(0, effect.FlashRemaining);                     // 无闪光
+        Assert.Equal(0, effect.BurstWindowRemaining);               // 不暂停常态发射
+        Assert.Equal(before.VX, after.VX, 6);                       // 无径向冲量：速度原封不动
+        Assert.Equal(before.VY, after.VY, 6);
     }
 
     [Fact]
@@ -299,5 +306,20 @@ public class SparkEffectTests
         effect.Update(TimeSpan.FromSeconds(0.4)); // 窗口结束
         Assert.Equal(0, effect.BurstWindowRemaining);
         Assert.True(effect.ActiveSparks.Count(s => !s.IsBurst) > 0); // 常态发射恢复
+    }
+
+    [Fact]
+    public void HasVisual随火星出现并在断流烧尽后消失()
+    {
+        var effect = new SparkEffect(new Random(1)) { Enabled = true };
+        Assert.False(effect.HasVisual);
+
+        effect.OnMouseMove(new Point(0, 0));
+        effect.Update(Frame());
+        Assert.True(effect.HasVisual);
+
+        for (int i = 0; i < 200 && effect.HasVisual; i++) // 断流停发 + 存量烧尽
+            effect.Update(Frame());
+        Assert.False(effect.HasVisual);
     }
 }

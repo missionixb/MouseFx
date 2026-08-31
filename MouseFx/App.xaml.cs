@@ -63,6 +63,7 @@ public partial class App : Application
             }
         });
         _overlay.FadeOnFullscreen = _settings!.HideOnFullscreen;
+        _overlay.TargetFps = _settings.RenderFps;
         _overlay.Show();
         Wpf.Ui.Appearance.SystemThemeWatcher.Watch(_overlay); // 系统切换亮暗时自动应用（触发上面的 token 替换）
 
@@ -110,24 +111,12 @@ public partial class App : Application
 
     private void ApplySettingsToEffects()
     {
-        _glow!.Hue = _settings!.Hue;
-        _glow.GlowRadius = _settings.GlowRadius;
-        _glow.Opacity = _settings.GlowOpacity;
-        _glow.FollowSpeed = _settings.FollowSpeed;
-        _ripple!.Hue = _settings.Hue;
-        _ripple.MaxRadius = _settings.RippleRadius;
-        _ripple.Shape = _settings.RippleShape;
-        _spark!.Hue = _settings.SparkHue;   // 火屑颜色与光圈特效分开
-        _spark.PoolLimit = _settings.SparkCount;
-        _spark.MaxLife = _settings.SparkLife;
-        _sparkler!.PoolLimit = _settings.SparklerCount;
-        _sparkler.Size = _settings.SparklerSize;
-        _spark.ClickBurstEnabled = _settings.SparkClickBurst;
-        _sparkler.ClickBurstEnabled = _settings.SparklerClickBurst;
-        _glow.IdleFade = _settings.IdleFade;
-        _spark.IdleFade = _settings.IdleFade;
-        _sparkler.IdleFade = _settings.IdleFade;
-        ApplyEffectMode(_settings.EffectMode);
+        var s = _settings!; // 唯一接线点：每张参数卡片只写自己的特效（串扰历史 bug 见 EffectSettingsApplier 注释）
+        EffectSettingsApplier.ApplyClassic(s, _glow!, _ripple!);
+        EffectSettingsApplier.ApplySpark(s, _spark!);
+        EffectSettingsApplier.ApplySparkler(s, _sparkler!);
+        EffectSettingsApplier.ApplyIdleFade(s, _glow!, _spark!, _sparkler!);
+        ApplyEffectMode(s.EffectMode);
     }
 
     /// <summary>软件渲染时限制粒子特效密度（避免 CPU 光栅化过载），爆炸同步降密度。</summary>

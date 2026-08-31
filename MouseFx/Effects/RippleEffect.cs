@@ -29,6 +29,9 @@ public sealed class RippleEffect : IEffect
     /// <summary>波纹扩散形状（圆圈/爱心/星星）。</summary>
     public RippleShape Shape { get; set; } = RippleShape.Circle;
 
+    /// <summary>左键点击时是否显示扩散涟漪（设置项，默认开）。false = 点击对本特效零影响。</summary>
+    public bool ClickEnabled { get; set; } = true;
+
     private Brush? _fill;
     private Pen? _pen;
     private double _fillHue = double.NaN;
@@ -36,8 +39,12 @@ public sealed class RippleEffect : IEffect
 
     public IReadOnlyList<RippleState> ActiveRipples => _ripples;
 
+    /// <summary>是否有扩散中的波纹。</summary>
+    public bool HasVisual => _ripples.Count > 0;
+
     public void OnMouseDown(Point position)
     {
+        if (!ClickEnabled) return; // 开关关闭 = 点击不产生任何显示
         if (_active.Count >= PoolLimit) _active.RemoveAt(0);
         _active.Add((position, TimeSpan.Zero));
         if (_ripples.Count >= PoolLimit) _ripples.RemoveAt(0);

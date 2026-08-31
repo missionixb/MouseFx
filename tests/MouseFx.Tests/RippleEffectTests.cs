@@ -75,4 +75,29 @@ public class RippleEffectTests
         Assert.Equal(5, effect.ActiveRipples[0].Position.X);
         Assert.Equal(34, effect.ActiveRipples[^1].Position.X);
     }
+
+    [Fact]
+    public void 关闭点击开关后点击不产生任何波纹()
+    {
+        var effect = new RippleEffect { Enabled = true, ClickEnabled = false };
+
+        effect.OnMouseDown(new Point(50, 60));
+
+        Assert.Empty(effect.ActiveRipples);  // 点击前后画面完全一致
+        Assert.False(effect.HasVisual);
+    }
+
+    [Fact]
+    public void HasVisual随波纹出现并在扩散完毕后消失()
+    {
+        var ripple = new RippleEffect { Enabled = true };
+        Assert.False(ripple.HasVisual);
+
+        ripple.OnMouseDown(new Point(0, 0));
+        Assert.True(ripple.HasVisual);
+
+        for (int i = 0; i < 100 && ripple.HasVisual; i++) // 扩散完毕（约 0.5s）
+            ripple.Update(TimeSpan.FromMilliseconds(16));
+        Assert.False(ripple.HasVisual);
+    }
 }

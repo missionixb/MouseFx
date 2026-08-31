@@ -9,6 +9,7 @@ public sealed class FakeEffect : IEffect
 {
     public string Name { get; init; } = "fake";
     public bool Enabled { get; set; }
+    public bool HasVisual { get; init; }
     public int DownCalls { get; private set; }
     public int MoveCalls { get; private set; }
     public int UpdateCalls { get; private set; }
@@ -55,5 +56,20 @@ public class EffectManagerTests
         Assert.Equal(2, manager.Effects.Count);
         Assert.Same(a, manager.Effects[0]);
         Assert.Same(b, manager.Effects[1]);
+    }
+
+    [Fact]
+    public void HasVisual只看已启用的特效()
+    {
+        var manager = new EffectManager();
+        var spark = new SparkEffect(new Random(1)) { Enabled = false };
+        manager.Register(spark);
+        spark.OnMouseMove(new System.Windows.Point(0, 0));
+
+        Assert.False(manager.HasVisual); // 禁用时不计入
+
+        spark.Enabled = true;
+        manager.UpdateAll(TimeSpan.FromMilliseconds(16));
+        Assert.True(manager.HasVisual); // 禁用取消且已产生画面
     }
 }

@@ -76,6 +76,13 @@ public sealed class AppSettings
     /// <summary>烟花：左键点击时爆发一圈星芒（默认开；旧配置文件缺字段时保持默认）。</summary>
     public bool SparklerClickBurst { get; set; } = true;
 
+    /// <summary>光圈：左键点击时显示扩散涟漪（默认开；旧配置文件缺字段时保持默认）。
+    /// 三个点击开关（火屑/烟花/光圈）互相独立、各自持久化。</summary>
+    public bool RippleClickEnabled { get; set; } = true;
+
+    /// <summary>渲染帧率上限（30~144，跟随屏幕刷新率上限）。越低越省 CPU，越高拖尾越顺滑。</summary>
+    public double RenderFps { get; set; } = 144;
+
     /// <summary>光晕跟随指数系数 k（/s），越大越跟手。</summary>
     public double FollowSpeed { get; set; } = 50;
 

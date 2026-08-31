@@ -30,6 +30,9 @@ public sealed class GlowEffect : IEffect
     /// <summary>当前输入淡出系数（1=正常，0=完全隐藏）。测试/诊断用。</summary>
     public double InputFade => _inputFade;
 
+    /// <summary>光晕是否可见（收到过鼠标位置且未淡出）。</summary>
+    public bool HasVisual => _hasMouse && _inputFade > 0;
+
     // —— 输入断流优雅降级 ——
     // 管理员窗口（任务管理器等）位于前台时，UIPI 使非管理员进程的低层钩子收不到输入，
     // 光晕会冻在原地。断流超过阈值后把光晕淡出，恢复输入后立即淡入。
@@ -38,6 +41,7 @@ public sealed class GlowEffect : IEffect
 
     private TimeSpan _timeSinceInput;
     private double _inputFade = 1;
+    private bool _hasMouse;
 
     private Brush? _brush;
     private double _brushHue = double.NaN;
@@ -48,6 +52,7 @@ public sealed class GlowEffect : IEffect
     public void OnMouseMove(Point position)
     {
         Target = position;
+        _hasMouse = true;
         _timeSinceInput = TimeSpan.Zero;
     }
 

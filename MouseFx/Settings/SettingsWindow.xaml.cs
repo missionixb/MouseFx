@@ -41,6 +41,8 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
         SparklerSizeSlider.Value = settings.SparklerSize;
         SparkBurstToggle.IsChecked = settings.SparkClickBurst;
         SparklerBurstToggle.IsChecked = settings.SparklerClickBurst;
+        RippleClickToggle.IsChecked = settings.RippleClickEnabled;
+        FpsSlider.Value = settings.RenderFps;
         // 分段选择器：项由 EffectModeRegistry 驱动（新增模式自动出现），初始选中在 Loaded 后设置
         ModeSelector.ItemsSource = EffectModeRegistry.Modes;
         IdleFadeToggle.IsChecked = settings.IdleFade;
@@ -71,6 +73,20 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
             _settings.SparklerClickBurst = _sparkler.ClickBurstEnabled;
             _service.Save(_settings);
         };
+        RippleClickToggle.Click += (_, _) =>
+        {
+            _ripple.ClickEnabled = RippleClickToggle.IsChecked == true;
+            _settings.RippleClickEnabled = _ripple.ClickEnabled;
+            _service.Save(_settings);
+        };
+        FpsSlider.ValueChanged += (_, _) =>
+        {
+            _overlay.TargetFps = (int)Math.Round(FpsSlider.Value);
+            _settings.RenderFps = _overlay.TargetFps;
+            FpsValue.Text = $"{_settings.RenderFps:0} FPS";
+            _service.Save(_settings);
+        };
+        FpsValue.Text = $"{settings.RenderFps:0} FPS";
         ClassicResetButton.Click += (_, _) =>
         {
             // 默认值取自 CreateDefault()（初版值：色相 210° 蓝、光圈 28px）；滑块赋值
@@ -98,10 +114,8 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
         };
         IdleFadeToggle.Click += (_, _) =>
         {
-            _glow.IdleFade = IdleFadeToggle.IsChecked == true;
-            _spark.IdleFade = _glow.IdleFade;
-            _sparkler.IdleFade = _glow.IdleFade;
-            _settings.IdleFade = _glow.IdleFade;
+            _settings.IdleFade = IdleFadeToggle.IsChecked == true;
+            EffectSettingsApplier.ApplyIdleFade(_settings, _glow, _spark, _sparkler);
             _service.Save(_settings);
         };
         FullscreenToggle.Click += (_, _) =>
@@ -121,7 +135,8 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
         ApplyModeUi(_settings.EffectMode); // 初始模式说明文字与面板可见性
     }
 
-    /// <summary>把滑块值同步到设置、特效并保存（改动即生效即保存）。</summary>
+    /// <summary>把光圈卡片滑块值同步到设置、特效并保存（改动即生效即保存）。
+    /// 只写光圈自己的特效——绝不触碰火屑/烟花（历史串扰 bug 见 EffectSettingsApplier 注释）。</summary>
     private void ApplyAll()
     {
         _settings.Hue = HueSlider.Value;
@@ -132,14 +147,7 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
             _settings.RippleShape = (RippleShape)RippleShapeBox.SelectedIndex;
         _settings.FollowSpeed = SpeedSlider.Value;
 
-        _glow.Hue = _settings.Hue;
-        _glow.GlowRadius = _settings.GlowRadius;
-        _glow.Opacity = _settings.GlowOpacity;
-        _glow.FollowSpeed = _settings.FollowSpeed;
-        _ripple.Hue = _settings.Hue;
-        _ripple.MaxRadius = _settings.RippleRadius;
-        _ripple.Shape = _settings.RippleShape;
-        _spark.Hue = _settings.Hue;
+        EffectSettingsApplier.ApplyClassic(_settings, _glow, _ripple);
 
         ColorPreview.Fill = new SolidColorBrush(ColorUtils.FromHue(_settings.Hue));
         HueValue.Text = $"{HueSlider.Value:0}°";
@@ -215,15 +223,13 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
         ModeDescription.Text = EffectModeRegistry.DescriptionOf(mode);
     }
 
-    /// <summary>火屑参数：独立颜色 + 粒子上限 + 生命，同步到设置与特效并保存。</summary>
+    /// <summary>火屑参数：独立颜色 + 粒子上限 + 生命，同步到设置与特效并保存（只写火屑）。</summary>
     private void ApplySparkAll()
     {
         _settings.SparkHue = SparkHueSlider.Value;
         _settings.SparkCount = (int)Math.Round(SparkCountSlider.Value);
         _settings.SparkLife = Math.Round(SparkLifeSlider.Value, 2);
-        _spark.Hue = _settings.SparkHue;
-        _spark.PoolLimit = _settings.SparkCount;
-        _spark.MaxLife = _settings.SparkLife;
+        EffectSettingsApplier.ApplySpark(_settings, _spark);
 
         SparkColorPreview.Fill = new SolidColorBrush(ColorUtils.FromHue(_settings.SparkHue));
         SparkHueValue.Text = $"{SparkHueSlider.Value:0}°";
@@ -233,13 +239,12 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
         _service.Save(_settings);
     }
 
-    /// <summary>烟花参数：粒子上限 + 星芒直径（颜色固定不可调），同步到设置与特效并保存。</summary>
+    /// <summary>烟花参数：粒子上限 + 星芒直径（颜色固定不可调），同步到设置与特效并保存（只写烟花）。</summary>
     private void ApplySparklerAll()
     {
         _settings.SparklerCount = (int)Math.Round(SparklerCountSlider.Value);
         _settings.SparklerSize = Math.Round(SparklerSizeSlider.Value);
-        _sparkler.PoolLimit = _settings.SparklerCount;
-        _sparkler.Size = _settings.SparklerSize;
+        EffectSettingsApplier.ApplySparkler(_settings, _sparkler);
 
         SparklerCountValue.Text = $"{SparklerCountSlider.Value:0} 颗";
         SparklerSizeValue.Text = $"{SparklerSizeSlider.Value:0} px";
