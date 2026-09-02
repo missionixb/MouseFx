@@ -4,7 +4,11 @@
 
 Windows 桌面鼠标特效工具：给光标加上常驻光晕、点击涟漪与粒子火花，让鼠标在任何场景下一眼可寻。程序常驻系统托盘，开机自启，几乎无感运行。
 
-<!-- TODO: 效果动图（光圈 / 火屑 / 烟花） -->
+<p align="center">
+  <img src="docs/images/fireworks.gif" alt="烟花：点击爆发一圈星芒" width="400"/>
+  <img src="docs/images/halo-heart.png" alt="光圈：爱心形状的点击涟漪" width="360"/>
+</p>
+<p align="center"><sub>左：烟花点击爆发 ｜ 右：光圈爱心涟漪（涟漪形状可切换 圆圈/爱心/星星）</sub></p>
 
 ## 特效模式
 

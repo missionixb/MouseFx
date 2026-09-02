@@ -4,7 +4,11 @@ English | [简体中文](README.md)
 
 Windows desktop mouse effects: a persistent cursor glow, click ripples and particle sparks that make your mouse easy to find in any scenario. Runs quietly in the system tray with optional autostart.
 
-<!-- TODO: effect GIFs (halo / sparks / fireworks) -->
+<p align="center">
+  <img src="docs/images/fireworks.gif" alt="Fireworks: click to burst a ring of sparks" width="400"/>
+  <img src="docs/images/halo-heart.png" alt="Halo: heart-shaped click ripples" width="360"/>
+</p>
+<p align="center"><sub>Left: fireworks click burst ｜ Right: halo heart ripples (shape switchable: circle / heart / star)</sub></p>
 
 ## Effect Modes
 
