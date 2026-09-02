@@ -102,6 +102,23 @@ public partial class OverlayWindow : Window
         SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_NOACTIVATE);
     }
 
+    private static readonly IntPtr HwndTopmost = new(-1); // HWND_TOPMOST
+    private const uint SwpNoSize = 0x0001;
+    private const uint SwpNoMove = 0x0002;
+    private const uint SwpNoActivate = 0x0010;
+
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowPos(
+        IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
+
+    /// <summary>把覆盖窗口插回置顶带顶部（幂等，对已置顶窗口为 no-op）。触发场景见 OnRendering。</summary>
+    private void ReassertTopmost()
+    {
+        IntPtr hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero) return;
+        SetWindowPos(hwnd, HwndTopmost, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoActivate);
+    }
+
     /// <summary>把钩子的屏幕物理像素坐标转换为窗口本地 DIP 坐标（多显示器 + DPI 缩放正确）。</summary>
     public Point ToLocal(Point devicePoint)
     {
@@ -121,11 +138,16 @@ public partial class OverlayWindow : Window
         if (!firstFrame && delta.TotalMilliseconds < 1000.0 / TargetFps - 0.5) return;
         _lastFrame = now;
 
-        // 强制全屏检测（节流 200ms）：全屏游戏时特效整体淡出，退出后恢复
-        if (FadeOnFullscreen && now - _lastFullscreenCheck >= FullscreenCheckInterval)
+        // 强制全屏检测（节流 200ms）：全屏游戏时特效整体淡出，退出后恢复；
+        // 同拍重新断言置顶——"显示桌面"(Win+D)、全屏应用进出、锁屏解锁会把所有窗口
+        // （包括置顶窗口）压到 Z 序底部，样式位还在但沉底，不主动拉回就永远沉在桌面层。
+        // SetWindowPos(HWND_TOPMOST) 对已置顶窗口是系统级 no-op，200ms 一次零开销。
+        if (now - _lastFullscreenCheck >= FullscreenCheckInterval)
         {
             _lastFullscreenCheck = now;
-            _isForegroundFullscreen = _fullscreenDetector.IsForegroundFullscreen();
+            if (FadeOnFullscreen)
+                _isForegroundFullscreen = _fullscreenDetector.IsForegroundFullscreen();
+            ReassertTopmost();
         }
         double target = !FadeOnFullscreen || !_isForegroundFullscreen ? 1 : 0;
         double maxStep = delta.TotalSeconds / FullscreenFadeSeconds;

@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Media;
 using MouseFx.Effects;
@@ -139,17 +140,24 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
             L10n.Apply(lang); // 触发 LanguageChanged → OnLanguageChanged 刷新动态文本
         };
         L10n.LanguageChanged += OnLanguageChanged;
-        Closed += (_, _) =>
-        {
-            L10n.LanguageChanged -= OnLanguageChanged; // 窗口每次打开重建，必须退订防泄漏
-            _saver.FlushNow();  // 关窗兜底：尚未落盘的变更立即保存
-            _saver.Dispose();
-        };
+        // 窗口复用不再销毁（见 OnClosing），语言订阅与窗口同生命周期，无需退订
         ApplyAll();
         ApplySparkAll();
         ApplySparklerAll();
         ApplyModeUi(_settings.EffectMode); // 初始模式面板可见性
         UpdateFpsText();
+    }
+
+    /// <summary>
+    /// 关闭 = 隐藏复用，不销毁：新建 FluentWindow 的首次控件 JIT + Mica backdrop 应用会
+    /// 同步阻塞 UI 线程约 0.4s（渲染循环停拍，特效凝滞——探针实测 4 连帧空窗），
+    /// 隐藏后重开瞬时。窗口随 App 进程存活，语言/主题刷新由已订阅的事件驱动。
+    /// </summary>
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        e.Cancel = true;
+        _saver.FlushNow(); // 隐藏前把尚未落盘的变更立即保存（原关窗兜底逻辑）
+        Hide();
     }
 
     /// <summary>渲染帧率数值文案（语言切换时随 OnLanguageChanged 刷新）。</summary>

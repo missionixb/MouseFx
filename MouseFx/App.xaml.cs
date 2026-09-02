@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Microsoft.Win32; // SystemEvents：系统主题偏好变化（替代 SystemThemeWatcher，见 OnStartup）
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -25,6 +26,7 @@ public partial class App : Application
     private GlowEffect? _glow;
     private SparkEffect? _spark;
     private SparklerEffect? _sparkler;
+    private Wpf.Ui.Appearance.ApplicationTheme? _lastAppliedTheme;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -67,7 +69,10 @@ public partial class App : Application
         _overlay.FadeOnFullscreen = _settings!.HideOnFullscreen;
         _overlay.TargetFps = _settings.RenderFps;
         _overlay.Show();
-        Wpf.Ui.Appearance.SystemThemeWatcher.Watch(_overlay); // 系统切换亮暗时自动应用（触发上面的 token 替换）
+        // 系统亮暗跟随：不能用 SystemThemeWatcher——它会把 Mica backdrop 应用到
+        // AllowsTransparency 的透明覆盖窗口（不支持、也无意义），改为监听系统主题
+        // 偏好变化后手动应用。SystemEvents 回调在广播线程，需切回 UI 线程。
+        SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
 
         _hook = new MouseHook();
         // 移动事件合并：钩子线程只写最新坐标，每个 UI 拍最多消费一次（此前每条
@@ -96,15 +101,23 @@ public partial class App : Application
         _tray.Show();
     }
 
-    /// <summary>按系统亮暗应用 Fluent 主题（Mica 底）。</summary>
+    /// <summary>按系统亮暗应用 Fluent 主题（Mica 底）。主题未变时跳过，避免无效重应用。</summary>
     private void ApplySystemTheme()
     {
         var sys = Wpf.Ui.Appearance.ApplicationThemeManager.GetSystemTheme();
         var theme = sys == Wpf.Ui.Appearance.SystemTheme.Dark
             ? Wpf.Ui.Appearance.ApplicationTheme.Dark
             : Wpf.Ui.Appearance.ApplicationTheme.Light;
+        if (theme == _lastAppliedTheme) return;
+        _lastAppliedTheme = theme;
         Wpf.Ui.Appearance.ApplicationThemeManager.Apply(theme, Wpf.Ui.Controls.WindowBackdropType.Mica);
         ApplyThemeTokens(theme);
+    }
+
+    private void OnUserPreferenceChanged(object? sender, UserPreferenceChangedEventArgs e)
+    {
+        if (e.Category != UserPreferenceCategory.General) return;
+        Dispatcher.BeginInvoke(ApplySystemTheme);
     }
 
     /// <summary>主题变化时整本替换项目 token 字典（Tokens.Light/Dark 键名一致，DynamicResource 自动刷新）。</summary>
@@ -151,22 +164,15 @@ public partial class App : Application
         _sparkler!.Enabled = mode == EffectMode.Sparkler;
     }
 
-    /// <summary>打开设置窗口（单例，已开则激活；关闭后下次重建）。保证弹到前台最上层。</summary>
+    /// <summary>打开设置窗口（复用单例：关闭即隐藏，见 SettingsWindow.OnClosing；已开则激活）。保证弹到前台最上层。</summary>
     private void OpenSettings()
     {
         if (_settingsWindow == null)
-        {
             _settingsWindow = new SettingsWindow(_settings!, _glow!, _ripple!, _spark!, _sparkler!,
                 _overlay!, _autoStart, _settingsService);
-            // WPF 窗口关闭后不能重新 Show()，关闭时释放引用以便下次重建
-            _settingsWindow.Closed += (_, _) => _settingsWindow = null;
-        }
         if (_settingsWindow.WindowState == WindowState.Minimized)
             _settingsWindow.WindowState = WindowState.Normal;
-        if (_settingsWindow.IsVisible)
-            _settingsWindow.Activate();
-        else
-            _settingsWindow.Show();
+        _settingsWindow.Show(); // 隐藏过的窗口重开瞬时；重建会吃 ~0.4s JIT+Mica 阻塞（特效凝滞）
         BringToForeground(_settingsWindow);
     }
 
@@ -199,6 +205,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
         _tray?.Dispose(); // 退订 L10n 语言事件并移除托盘图标（此前靠进程退出兜底）
         _hook?.Dispose();
         base.OnExit(e);
