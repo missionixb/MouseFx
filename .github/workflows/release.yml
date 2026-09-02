@@ -1,0 +1,55 @@
+name: Release
+
+# 推送 v* 标签时自动构建两种发布包并创建 GitHub Release：
+#   自包含版（无需 .NET 运行时，体积大）+ 轻量版（需 .NET Desktop Runtime 10，体积小）
+# 发版流程：git tag v1.0.0 && git push origin v1.0.0
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Run tests
+        run: dotnet test --configuration Release
+
+      - name: Publish self-contained (single file)
+        run: >
+          dotnet publish MouseFx -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -o publish/self-contained
+
+      - name: Publish framework-dependent (single file)
+        run: >
+          dotnet publish MouseFx -c Release -r win-x64 --self-contained false
+          -p:PublishSingleFile=true
+          -o publish/framework-dependent
+
+      - name: Rename assets (Release 资产不能重名，加后缀区分)
+        shell: pwsh
+        run: |
+          Copy-Item publish/self-contained/MouseFx.exe "MouseFx-${{ github.ref_name }}-win-x64.exe"
+          Copy-Item publish/framework-dependent/MouseFx.exe "MouseFx-${{ github.ref_name }}-win-x64-lite.exe"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            MouseFx-*-win-x64.exe
+            MouseFx-*-win-x64-lite.exe
+          generate_release_notes: true
