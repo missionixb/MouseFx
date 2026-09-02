@@ -11,6 +11,10 @@
                 <ui:ControlsDictionary/>
                 <!-- 项目设计 token（亮暗两本，键名一致；运行时由 ApplyThemeTokens 整本替换） -->
                 <ResourceDictionary Source="Styles/Tokens.Light.xaml"/>
+                <!-- 控件重绘（覆盖 WPF-UI 隐式样式：滑块轨道零内缩，拖到头贴边） -->
+                <ResourceDictionary Source="Styles/Controls.xaml"/>
+                <!-- 界面字符串（zh/en 两本，键名一致；运行时由 L10n.Apply 整本替换） -->
+                <ResourceDictionary Source="Styles/Strings.zh.xaml"/>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

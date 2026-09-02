@@ -57,11 +57,29 @@ public sealed class SettingsService
             var dir = Path.GetDirectoryName(_filePath)!;
             Directory.CreateDirectory(dir);
             var json = JsonSerializer.Serialize(settings, JsonOptions);
-            File.WriteAllText(_filePath, json);
+            // 原子替换：先写临时文件再 Move 覆盖，写一半崩溃/断电/杀软拦截时
+            // 旧配置完好无损（直接 WriteAllText 会把目标截断成半个 JSON → 全部设置丢失）
+            var tempPath = _filePath + ".tmp";
+            File.WriteAllText(tempPath, json);
+            File.Move(tempPath, _filePath, overwrite: true);
         }
         catch
         {
-            // 保存失败不崩溃，不影响主功能
+            // 保存失败不崩溃，不影响主功能；清理可能残留的临时文件
+            TryDeleteTemp();
+        }
+    }
+
+    private void TryDeleteTemp()
+    {
+        try
+        {
+            var tempPath = _filePath + ".tmp";
+            if (File.Exists(tempPath)) File.Delete(tempPath);
+        }
+        catch
+        {
+            // 清理失败不影响主功能，下次保存会覆盖
         }
     }
 }

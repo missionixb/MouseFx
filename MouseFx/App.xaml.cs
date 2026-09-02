@@ -20,6 +20,7 @@ public partial class App : Application
     private EffectManager? _manager;
     private OverlayWindow? _overlay;
     private SettingsWindow? _settingsWindow;
+    private TrayIcon? _tray;
     private RippleEffect? _ripple;
     private GlowEffect? _glow;
     private SparkEffect? _spark;
@@ -36,6 +37,7 @@ public partial class App : Application
         _autoStart.EnsureRegistered();
 
         _settings = _settingsService.Load();
+        L10n.Apply(_settings.Language); // 界面语言：托盘/设置窗口/对话框文本的字典在此之前必须就位
 
         _manager = new EffectManager();
         _ripple = new RippleEffect { Enabled = true };
@@ -68,8 +70,16 @@ public partial class App : Application
         Wpf.Ui.Appearance.SystemThemeWatcher.Watch(_overlay); // 系统切换亮暗时自动应用（触发上面的 token 替换）
 
         _hook = new MouseHook();
-        _hook.MouseMove += devicePoint => Dispatcher.BeginInvoke(
-            () => _manager!.HandleMouseMove(_overlay!.ToLocal(devicePoint)));
+        // 移动事件合并：钩子线程只写最新坐标，每个 UI 拍最多消费一次（此前每条
+        // 钩子事件一次 BeginInvoke，高轮询鼠标下每秒数千次调度 + 堆分配，且
+        // UI 忙时处理的全是过期位置）
+        var movePump = new MoveCoalescer(devicePoint => _manager!.HandleMouseMove(_overlay!.ToLocal(devicePoint)));
+        var drainMove = new Action(movePump.Drain);
+        _hook.MouseMove += devicePoint =>
+        {
+            if (movePump.Push(devicePoint))
+                Dispatcher.BeginInvoke(drainMove);
+        };
         _hook.MouseDown += devicePoint => Dispatcher.BeginInvoke(
             () => _manager!.HandleMouseDown(_overlay!.ToLocal(devicePoint)));
         try
@@ -78,12 +88,12 @@ public partial class App : Application
         }
         catch (InvalidOperationException ex)
         {
-            MessageBox.Show($"鼠标钩子启动失败：{ex.Message}。特效将无法工作。",
-                "萤火鼠", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(L10n.Fmt("Str.HookFailed", ex.Message),
+                L10n.T("Str.AppName"), MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
-        var tray = new TrayIcon(OpenSettings);
-        tray.Show();
+        _tray = new TrayIcon(OpenSettings);
+        _tray.Show();
     }
 
     /// <summary>按系统亮暗应用 Fluent 主题（Mica 底）。</summary>
@@ -189,6 +199,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _tray?.Dispose(); // 退订 L10n 语言事件并移除托盘图标（此前靠进程退出兜底）
         _hook?.Dispose();
         base.OnExit(e);
     }

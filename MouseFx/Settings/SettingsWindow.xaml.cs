@@ -15,6 +15,7 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
     private readonly SparklerEffect _sparkler;
     private readonly OverlayWindow _overlay;
     private readonly SettingsService _service;
+    private readonly DebouncedSaver _saver;
 
     public SettingsWindow(AppSettings settings, GlowEffect glow, RippleEffect ripple, SparkEffect spark,
         SparklerEffect sparkler, OverlayWindow overlay, IAutoStartService autoStart, SettingsService service)
@@ -26,6 +27,7 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
         _sparkler = sparkler;
         _overlay = overlay;
         _service = service;
+        _saver = new DebouncedSaver(() => Dispatcher.BeginInvoke(SaveNow));
         InitializeComponent();
 
         // 先赋值（此时事件未挂接，不会触发），再挂事件，最后统一同步一次
@@ -49,6 +51,7 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
         FullscreenToggle.IsChecked = overlay.FadeOnFullscreen;
         AutoStartToggle.IsChecked = autoStart.IsEnabled;
         RippleShapeBox.SelectedIndex = (int)settings.RippleShape;
+        LanguageBox.SelectedIndex = settings.Language == L10n.En ? 1 : 0; // 先赋值后挂事件，不触发 SelectionChanged
 
         HueSlider.ValueChanged += (_, _) => ApplyAll();
         RadiusSlider.ValueChanged += (_, _) => ApplyAll();
@@ -65,28 +68,27 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
         {
             _spark.ClickBurstEnabled = SparkBurstToggle.IsChecked == true;
             _settings.SparkClickBurst = _spark.ClickBurstEnabled;
-            _service.Save(_settings);
+            SaveSoon();
         };
         SparklerBurstToggle.Click += (_, _) =>
         {
             _sparkler.ClickBurstEnabled = SparklerBurstToggle.IsChecked == true;
             _settings.SparklerClickBurst = _sparkler.ClickBurstEnabled;
-            _service.Save(_settings);
+            SaveSoon();
         };
         RippleClickToggle.Click += (_, _) =>
         {
             _ripple.ClickEnabled = RippleClickToggle.IsChecked == true;
             _settings.RippleClickEnabled = _ripple.ClickEnabled;
-            _service.Save(_settings);
+            SaveSoon();
         };
         FpsSlider.ValueChanged += (_, _) =>
         {
             _overlay.TargetFps = (int)Math.Round(FpsSlider.Value);
             _settings.RenderFps = _overlay.TargetFps;
-            FpsValue.Text = $"{_settings.RenderFps:0} FPS";
-            _service.Save(_settings);
+            UpdateFpsText();
+            SaveSoon();
         };
-        FpsValue.Text = $"{settings.RenderFps:0} FPS";
         ClassicResetButton.Click += (_, _) =>
         {
             // 默认值取自 CreateDefault()（初版值：色相 210° 蓝、光圈 28px）；滑块赋值
@@ -116,24 +118,47 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
         {
             _settings.IdleFade = IdleFadeToggle.IsChecked == true;
             EffectSettingsApplier.ApplyIdleFade(_settings, _glow, _spark, _sparkler);
-            _service.Save(_settings);
+            SaveSoon();
         };
         FullscreenToggle.Click += (_, _) =>
         {
             _overlay.FadeOnFullscreen = FullscreenToggle.IsChecked == true;
             _settings.HideOnFullscreen = _overlay.FadeOnFullscreen;
-            _service.Save(_settings);
+            SaveSoon();
         };
         AutoStartToggle.Click += (_, _) =>
         {
             if (AutoStartToggle.IsChecked == true) autoStart.Enable();
             else autoStart.Disable();
         };
+        LanguageBox.SelectionChanged += (_, _) =>
+        {
+            var lang = LanguageBox.SelectedIndex == 1 ? L10n.En : L10n.Zh;
+            _settings.Language = lang;
+            SaveSoon();
+            L10n.Apply(lang); // 触发 LanguageChanged → OnLanguageChanged 刷新动态文本
+        };
+        L10n.LanguageChanged += OnLanguageChanged;
+        Closed += (_, _) =>
+        {
+            L10n.LanguageChanged -= OnLanguageChanged; // 窗口每次打开重建，必须退订防泄漏
+            _saver.FlushNow();  // 关窗兜底：尚未落盘的变更立即保存
+            _saver.Dispose();
+        };
         ApplyAll();
         ApplySparkAll();
         ApplySparklerAll();
-        ApplyModeUi(_settings.EffectMode); // 初始模式说明文字与面板可见性
+        ApplyModeUi(_settings.EffectMode); // 初始模式面板可见性
+        UpdateFpsText();
     }
+
+    /// <summary>渲染帧率数值文案（语言切换时随 OnLanguageChanged 刷新）。</summary>
+    private void UpdateFpsText() => FpsValue.Text = L10n.Fmt("Str.Fmt.Fps", $"{_settings.RenderFps:0}");
+
+    /// <summary>防抖落盘：滑块拖动的高频变更在窗口内合并为一次写盘，特效参数照旧实时生效。</summary>
+    private void SaveSoon() => _saver.Schedule();
+
+    private void SaveNow() => _service.Save(_settings);
 
     /// <summary>把光圈卡片滑块值同步到设置、特效并保存（改动即生效即保存）。
     /// 只写光圈自己的特效——绝不触碰火屑/烟花（历史串扰 bug 见 EffectSettingsApplier 注释）。</summary>
@@ -150,13 +175,19 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
         EffectSettingsApplier.ApplyClassic(_settings, _glow, _ripple);
 
         ColorPreview.Fill = new SolidColorBrush(ColorUtils.FromHue(_settings.Hue));
-        HueValue.Text = $"{HueSlider.Value:0}°";
-        RadiusValue.Text = $"{RadiusSlider.Value:0} px";
-        OpacityValue.Text = $"{OpacitySlider.Value:P0}";
-        RippleValue.Text = $"{RippleSlider.Value:0} px";
-        SpeedValue.Text = $"{SpeedSlider.Value:0}";
+        UpdateClassicTexts();
 
-        _service.Save(_settings);
+        SaveSoon();
+    }
+
+    /// <summary>光圈数值文案（随语言切换刷新；单位取自字符串字典）。</summary>
+    private void UpdateClassicTexts()
+    {
+        HueValue.Text = L10n.Fmt("Str.Fmt.Deg", $"{HueSlider.Value:0}");
+        RadiusValue.Text = L10n.Fmt("Str.Fmt.Px", $"{RadiusSlider.Value:0}");
+        OpacityValue.Text = $"{OpacitySlider.Value:P0}";
+        RippleValue.Text = L10n.Fmt("Str.Fmt.Px", $"{RippleSlider.Value:0}");
+        SpeedValue.Text = $"{SpeedSlider.Value:0}";
     }
 
     /// <summary>
@@ -174,13 +205,19 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
         _settings.GlowEnabled = _glow.Enabled;
         _settings.SparkEnabled = _spark.Enabled;
         ApplyModeUi(mode);
-        _service.Save(_settings);
+        SaveSoon();
     }
 
     /// <summary>分段选择器就绪后：设置等宽列数，并按当前设置选中对应模式。</summary>
     private void ModeSelector_Loaded(object sender, RoutedEventArgs e)
     {
         ModeSelector.Loaded -= ModeSelector_Loaded;
+        RefreshModeSelector();
+    }
+
+    /// <summary>同步分段选择器：等宽列数 + 按当前设置选中。语言切换重建 ItemsSource 后也需调用。</summary>
+    private void RefreshModeSelector()
+    {
         if (FindVisualChild<System.Windows.Controls.Primitives.UniformGrid>(ModeSelector) is { } grid)
             grid.Columns = EffectModeRegistry.Modes.Count;
         foreach (var container in ModeSelector.Items.OfType<object>()
@@ -190,6 +227,22 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
             if (container.Tag is EffectModeInfo info)
                 container.IsChecked = info.Mode == _settings.EffectMode;
         }
+    }
+
+    /// <summary>
+    /// 界面语言切换：XAML 静态文本由 DynamicResource 自动刷新，
+    /// 这里负责动态生成的部分——模式分段选择器（数据绑定 DisplayName）与数值文案。
+    /// </summary>
+    private void OnLanguageChanged()
+    {
+        ModeSelector.ItemsSource = null;
+        ModeSelector.ItemsSource = EffectModeRegistry.Modes;
+        // 容器在下一个布局拍才生成，延迟同步选中态
+        Dispatcher.BeginInvoke(RefreshModeSelector, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        UpdateFpsText();
+        UpdateClassicTexts();
+        UpdateSparkTexts();
+        UpdateSparklerTexts();
     }
 
     private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
@@ -212,15 +265,14 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
     }
 
     /// <summary>
-    /// 模式对应的界面状态：只显示当前模式的参数卡片，并更新模式说明。
-    /// 窗口高度为 SizeToContent，随卡片显隐自动伸缩。
+    /// 模式对应的界面状态：只显示当前模式的参数面板。
+    /// 窗口高度为 SizeToContent，随面板显隐自动伸缩。
     /// </summary>
     private void ApplyModeUi(EffectMode mode)
     {
         ClassicPanel.Visibility = mode == EffectMode.Classic ? Visibility.Visible : Visibility.Collapsed;
         SparkPanel.Visibility = mode == EffectMode.Spark ? Visibility.Visible : Visibility.Collapsed;
         SparklerPanel.Visibility = mode == EffectMode.Sparkler ? Visibility.Visible : Visibility.Collapsed;
-        ModeDescription.Text = EffectModeRegistry.DescriptionOf(mode);
     }
 
     /// <summary>火屑参数：独立颜色 + 粒子上限 + 生命，同步到设置与特效并保存（只写火屑）。</summary>
@@ -232,11 +284,17 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
         EffectSettingsApplier.ApplySpark(_settings, _spark);
 
         SparkColorPreview.Fill = new SolidColorBrush(ColorUtils.FromHue(_settings.SparkHue));
-        SparkHueValue.Text = $"{SparkHueSlider.Value:0}°";
-        SparkCountValue.Text = $"{SparkCountSlider.Value:0} 颗";
-        SparkLifeValue.Text = $"{SparkLifeSlider.Value:0.0} 秒";
+        UpdateSparkTexts();
 
-        _service.Save(_settings);
+        SaveSoon();
+    }
+
+    /// <summary>火屑数值文案（随语言切换刷新）。</summary>
+    private void UpdateSparkTexts()
+    {
+        SparkHueValue.Text = L10n.Fmt("Str.Fmt.Deg", $"{SparkHueSlider.Value:0}");
+        SparkCountValue.Text = L10n.Fmt("Str.Fmt.Count", $"{SparkCountSlider.Value:0}");
+        SparkLifeValue.Text = L10n.Fmt("Str.Fmt.Seconds", $"{SparkLifeSlider.Value:0.0}");
     }
 
     /// <summary>烟花参数：粒子上限 + 星芒直径（颜色固定不可调），同步到设置与特效并保存（只写烟花）。</summary>
@@ -246,9 +304,15 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
         _settings.SparklerSize = Math.Round(SparklerSizeSlider.Value);
         EffectSettingsApplier.ApplySparkler(_settings, _sparkler);
 
-        SparklerCountValue.Text = $"{SparklerCountSlider.Value:0} 颗";
-        SparklerSizeValue.Text = $"{SparklerSizeSlider.Value:0} px";
+        UpdateSparklerTexts();
 
-        _service.Save(_settings);
+        SaveSoon();
+    }
+
+    /// <summary>烟花数值文案（随语言切换刷新）。</summary>
+    private void UpdateSparklerTexts()
+    {
+        SparklerCountValue.Text = L10n.Fmt("Str.Fmt.Count", $"{SparklerCountSlider.Value:0}");
+        SparklerSizeValue.Text = L10n.Fmt("Str.Fmt.Px", $"{SparklerSizeSlider.Value:0}");
     }
 }

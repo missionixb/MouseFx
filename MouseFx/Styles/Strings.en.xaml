@@ -1,0 +1,67 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+    <!-- UI strings (English). Keys must match Strings.zh.xaml exactly (enforced by a parity test);
+         swapped as a whole at runtime by L10n.Apply (same pattern as the light/dark token dictionaries) -->
+
+    <!-- App -->
+    <sys:String x:Key="Str.AppName">Firefly Mouse</sys:String>
+    <sys:String x:Key="Str.SettingsTitle">Firefly Mouse Settings</sys:String>
+    <sys:String x:Key="Str.Tagline">A trail of light behind your cursor</sys:String>
+
+    <!-- General -->
+    <sys:String x:Key="Str.General">General</sys:String>
+    <sys:String x:Key="Str.IdleFade">Fade when idle</sys:String>
+    <sys:String x:Key="Str.HideFullscreen">Hide on fullscreen</sys:String>
+    <sys:String x:Key="Str.AutoStart">Start with Windows</sys:String>
+    <sys:String x:Key="Str.RenderFps">Render FPS</sys:String>
+    <sys:String x:Key="Str.Language">Language</sys:String>
+
+    <!-- Effect mode -->
+    <sys:String x:Key="Str.Mode">Effect mode</sys:String>
+    <sys:String x:Key="Str.ModeHint">One at a time</sys:String>
+    <sys:String x:Key="Str.Mode.Halo">Halo</sys:String>
+    <sys:String x:Key="Str.Mode.Halo.Desc">A soft glow follows the cursor; clicking sends out a ripple</sys:String>
+    <sys:String x:Key="Str.Mode.Spark">Sparks</sys:String>
+    <sys:String x:Key="Str.Mode.Spark.Desc">Tiny sparks scatter along your trail and fall with gravity</sys:String>
+    <sys:String x:Key="Str.Mode.Sparkler">Sparkler</sys:String>
+    <sys:String x:Key="Str.Mode.Sparkler.Desc">Star bursts radiate from the cursor like a handheld sparkler</sys:String>
+
+    <!-- Panel titles -->
+    <sys:String x:Key="Str.Panel.Halo">Halo settings</sys:String>
+    <sys:String x:Key="Str.Panel.Spark">Sparks settings</sys:String>
+    <sys:String x:Key="Str.Panel.Sparkler">Sparkler settings</sys:String>
+
+    <!-- Rows -->
+    <sys:String x:Key="Str.Color">Color</sys:String>
+    <sys:String x:Key="Str.ClickShape">Click shape</sys:String>
+    <sys:String x:Key="Str.ClickRipple">Click ripple</sys:String>
+    <sys:String x:Key="Str.ClickBurst">Click burst</sys:String>
+    <sys:String x:Key="Str.HaloSize">Halo size</sys:String>
+    <sys:String x:Key="Str.HaloOpacity">Halo opacity</sys:String>
+    <sys:String x:Key="Str.RippleSize">Ripple size</sys:String>
+    <sys:String x:Key="Str.FollowSpeed">Follow speed</sys:String>
+    <sys:String x:Key="Str.ParticleCount">Particles</sys:String>
+    <sys:String x:Key="Str.LifeTime">Lifetime</sys:String>
+    <sys:String x:Key="Str.StarSize">Star size</sys:String>
+    <sys:String x:Key="Str.ResetDefaults">Reset</sys:String>
+
+    <!-- Click shape options -->
+    <sys:String x:Key="Str.Shape.Circle">Circle</sys:String>
+    <sys:String x:Key="Str.Shape.Heart">Heart</sys:String>
+    <sys:String x:Key="Str.Shape.Star">Star</sys:String>
+
+    <!-- Tray -->
+    <sys:String x:Key="Str.Tray.Settings">Settings</sys:String>
+    <sys:String x:Key="Str.Tray.Exit">Exit</sys:String>
+
+    <!-- Dialogs -->
+    <sys:String x:Key="Str.HookFailed">Failed to start the mouse hook: {0}. Effects will be unavailable.</sys:String>
+
+    <!-- Value formats -->
+    <sys:String x:Key="Str.Fmt.Fps">{0} FPS</sys:String>
+    <sys:String x:Key="Str.Fmt.Px">{0} px</sys:String>
+    <sys:String x:Key="Str.Fmt.Deg">{0}°</sys:String>
+    <sys:String x:Key="Str.Fmt.Count">{0}</sys:String>
+    <sys:String x:Key="Str.Fmt.Seconds">{0} s</sys:String>
+</ResourceDictionary>

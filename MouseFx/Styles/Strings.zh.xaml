@@ -1,0 +1,67 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+    <!-- 界面字符串（中文）。键名必须与 Strings.en.xaml 完全一致（有键完备性测试兜底），
+         运行时由 L10n.Apply 整本替换（模式同 Tokens 亮暗字典） -->
+
+    <!-- 应用 -->
+    <sys:String x:Key="Str.AppName">萤火鼠</sys:String>
+    <sys:String x:Key="Str.SettingsTitle">萤火鼠设置</sys:String>
+    <sys:String x:Key="Str.Tagline">鼠标划过，随手生光</sys:String>
+
+    <!-- 通用设置 -->
+    <sys:String x:Key="Str.General">通用设置</sys:String>
+    <sys:String x:Key="Str.IdleFade">静止时淡出</sys:String>
+    <sys:String x:Key="Str.HideFullscreen">全屏时隐藏</sys:String>
+    <sys:String x:Key="Str.AutoStart">开机自启</sys:String>
+    <sys:String x:Key="Str.RenderFps">渲染帧率</sys:String>
+    <sys:String x:Key="Str.Language">语言</sys:String>
+
+    <!-- 特效模式 -->
+    <sys:String x:Key="Str.Mode">特效模式</sys:String>
+    <sys:String x:Key="Str.ModeHint">同一时间使用一种</sys:String>
+    <sys:String x:Key="Str.Mode.Halo">光圈</sys:String>
+    <sys:String x:Key="Str.Mode.Halo.Desc">柔和光晕跟随光标，点击时荡开涟漪</sys:String>
+    <sys:String x:Key="Str.Mode.Spark">火屑</sys:String>
+    <sys:String x:Key="Str.Mode.Spark.Desc">细小的火星沿轨迹迸落，带着重力下坠</sys:String>
+    <sys:String x:Key="Str.Mode.Sparkler">烟花</sys:String>
+    <sys:String x:Key="Str.Mode.Sparkler.Desc">星芒自光标向四周绽放，像手持烟花</sys:String>
+
+    <!-- 参数面板标题 -->
+    <sys:String x:Key="Str.Panel.Halo">光圈参数</sys:String>
+    <sys:String x:Key="Str.Panel.Spark">火屑参数</sys:String>
+    <sys:String x:Key="Str.Panel.Sparkler">烟花参数</sys:String>
+
+    <!-- 参数行 -->
+    <sys:String x:Key="Str.Color">颜色</sys:String>
+    <sys:String x:Key="Str.ClickShape">点击形状</sys:String>
+    <sys:String x:Key="Str.ClickRipple">点击涟漪</sys:String>
+    <sys:String x:Key="Str.ClickBurst">点击爆裂</sys:String>
+    <sys:String x:Key="Str.HaloSize">光圈大小</sys:String>
+    <sys:String x:Key="Str.HaloOpacity">光圈浓度</sys:String>
+    <sys:String x:Key="Str.RippleSize">涟漪大小</sys:String>
+    <sys:String x:Key="Str.FollowSpeed">跟随速度</sys:String>
+    <sys:String x:Key="Str.ParticleCount">粒子数量</sys:String>
+    <sys:String x:Key="Str.LifeTime">生命时长</sys:String>
+    <sys:String x:Key="Str.StarSize">星芒直径</sys:String>
+    <sys:String x:Key="Str.ResetDefaults">恢复默认</sys:String>
+
+    <!-- 点击形状选项 -->
+    <sys:String x:Key="Str.Shape.Circle">圆圈</sys:String>
+    <sys:String x:Key="Str.Shape.Heart">爱心</sys:String>
+    <sys:String x:Key="Str.Shape.Star">星星</sys:String>
+
+    <!-- 托盘 -->
+    <sys:String x:Key="Str.Tray.Settings">设置</sys:String>
+    <sys:String x:Key="Str.Tray.Exit">退出</sys:String>
+
+    <!-- 对话框 -->
+    <sys:String x:Key="Str.HookFailed">鼠标钩子启动失败：{0}。特效将无法工作。</sys:String>
+
+    <!-- 数值格式 -->
+    <sys:String x:Key="Str.Fmt.Fps">{0} FPS</sys:String>
+    <sys:String x:Key="Str.Fmt.Px">{0} px</sys:String>
+    <sys:String x:Key="Str.Fmt.Deg">{0}°</sys:String>
+    <sys:String x:Key="Str.Fmt.Count">{0} 颗</sys:String>
+    <sys:String x:Key="Str.Fmt.Seconds">{0} 秒</sys:String>
+</ResourceDictionary>

@@ -33,6 +33,7 @@ public class SettingsServiceTests
         Assert.True(s.SparklerClickBurst);
         Assert.True(s.RippleClickEnabled);  // 光圈点击涟漪默认开（三个点击开关互相独立）
         Assert.Equal(144, s.RenderFps);     // 渲染帧率默认跟随 144Hz 上限
+        Assert.Equal("zh", s.Language);     // 界面语言默认中文
     }
 
     [Fact]
@@ -64,6 +65,7 @@ public class SettingsServiceTests
                 SparklerClickBurst = false,
                 RippleClickEnabled = false,
                 RenderFps = 60,
+                Language = "en",
             };
             service.Save(s);
 
@@ -88,6 +90,52 @@ public class SettingsServiceTests
             Assert.False(loaded.SparklerClickBurst);
             Assert.False(loaded.RippleClickEnabled);
             Assert.Equal(60, loaded.RenderFps);
+            Assert.Equal("en", loaded.Language);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void 重复保存不残留临时文件()
+    {
+        var path = TempPath();
+        try
+        {
+            var service = new SettingsService(path);
+            service.Save(new AppSettings { Hue = 100 });
+            service.Save(new AppSettings { Hue = 200 });
+
+            Assert.Equal(200, new SettingsService(path).Load().Hue);
+            var dir = Path.GetDirectoryName(path)!;
+            Assert.Empty(Directory.GetFiles(dir, Path.GetFileName(path) + ".tmp*"));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void 写入目标被锁定时保存失败原配置保留且无残留()
+    {
+        var path = TempPath();
+        try
+        {
+            var service = new SettingsService(path);
+            service.Save(new AppSettings { Hue = 100 });
+
+            using (File.Open(path, FileMode.Open, FileAccess.Read, FileShare.None)) // 独占锁住旧配置
+            {
+                var blocked = new SettingsService(path);
+                blocked.Save(new AppSettings { Hue = 300 }); // 失败被吞，不崩溃
+            }
+
+            Assert.Equal(100, new SettingsService(path).Load().Hue); // 原配置完好
+            var dir = Path.GetDirectoryName(path)!;
+            Assert.Empty(Directory.GetFiles(dir, Path.GetFileName(path) + ".tmp*")); // 无残留
         }
         finally
         {

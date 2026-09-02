@@ -4,15 +4,16 @@ using MouseFx.Settings;
 
 namespace MouseFx.Effects;
 
-public readonly record struct RippleState(Point Position, double Radius, double Opacity, double Progress);
+/// <summary>点击波纹的状态：半径/透明度/进度由 Elapsed 推导，随 Update 原地刷新。</summary>
+public readonly record struct RippleState(Point Position, double Radius, double Opacity, double Progress, TimeSpan Elapsed);
 
 public sealed class RippleEffect : IEffect
 {
     public static readonly TimeSpan Duration = TimeSpan.FromMilliseconds(600);
     private const int PoolLimit = 30;
 
+    // 单列表原地推进：Elapsed 是真相源，半径/透明度/进度由它推导写入，Draw 与测试直接读
     private readonly List<RippleState> _ripples = new();
-    private readonly List<(Point Position, TimeSpan Elapsed)> _active = new();
 
     public string Name => "点击波纹";
     public bool Enabled { get; set; }
@@ -45,30 +46,32 @@ public sealed class RippleEffect : IEffect
     public void OnMouseDown(Point position)
     {
         if (!ClickEnabled) return; // 开关关闭 = 点击不产生任何显示
-        if (_active.Count >= PoolLimit) _active.RemoveAt(0);
-        _active.Add((position, TimeSpan.Zero));
         if (_ripples.Count >= PoolLimit) _ripples.RemoveAt(0);
-        _ripples.Add(new RippleState(position, 0, Opacity, 0));
+        _ripples.Add(new RippleState(position, 0, Opacity, 0, TimeSpan.Zero));
     }
 
     public void OnMouseMove(Point position) { }
 
     public void Update(TimeSpan delta)
     {
-        _ripples.Clear();
-        for (int i = _active.Count - 1; i >= 0; i--)
+        for (int i = _ripples.Count - 1; i >= 0; i--)
         {
-            var (position, elapsed) = _active[i];
-            elapsed += delta;
+            var ripple = _ripples[i];
+            var elapsed = ripple.Elapsed + delta;
             if (elapsed >= Duration)
             {
-                _active.RemoveAt(i);
+                _ripples.RemoveAt(i);
                 continue;
             }
-            _active[i] = (position, elapsed);
             double progress = elapsed.TotalMilliseconds / Duration.TotalMilliseconds;
             double eased = 1 - Math.Pow(1 - progress, 2); // EaseOutQuad：先快后慢
-            _ripples.Add(new RippleState(position, MaxRadius * eased, Opacity * (1 - progress), progress));
+            _ripples[i] = ripple with
+            {
+                Elapsed = elapsed,
+                Radius = MaxRadius * eased,
+                Opacity = Opacity * (1 - progress),
+                Progress = progress,
+            };
         }
     }
 

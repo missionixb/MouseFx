@@ -1,0 +1,76 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+        控件重绘（在 App.xaml 中合并于 WPF-UI ControlsDictionary 之后，覆盖其隐式样式）。
+        滑块：轨道满铺到控件两端（零内缩），拖到头时拇指与填充条贴边——
+        WPF-UI/系统默认模板的轨道两端有固定留白（如 Aero2 的 Margin="5,0,5,0"），
+        观感是"拉不到最边缘"。颜色全部走 token，随亮暗主题自动切换。
+    -->
+    <Style TargetType="Slider">
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="IsMoveToPointEnabled" Value="True"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Slider">
+                    <Grid Background="Transparent" Height="22" VerticalAlignment="Center">
+                        <!-- 剩余轨道：满宽细线（始终可见） -->
+                        <Border Height="4" CornerRadius="2"
+                                Background="{DynamicResource Bg.SubtleHoverBrush}"
+                                VerticalAlignment="Center"/>
+                        <Track x:Name="PART_Track">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="{x:Static Slider.DecreaseLarge}"
+                                              Focusable="False" IsTabStop="False">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <!-- 已走过区间：accent 填充条，右缘始终与拇指左缘相接 -->
+                                            <Grid Background="Transparent" Height="22">
+                                                <Border Height="4" CornerRadius="2" HorizontalAlignment="Left"
+                                                        Background="{DynamicResource Accent.DefaultBrush}"
+                                                        VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.DecreaseRepeatButton>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="{x:Static Slider.IncreaseLarge}"
+                                              Focusable="False" IsTabStop="False">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Grid Background="Transparent" Height="22"/>
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.IncreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb Width="18" Height="18" Focusable="False">
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="Thumb">
+                                            <Grid Background="Transparent">
+                                                <!-- Win11 风格圆点拇指：默认适中、悬停放大、按下收小 -->
+                                                <Ellipse x:Name="Grip" Width="16" Height="16"
+                                                         Fill="{DynamicResource Accent.DefaultBrush}"
+                                                         Stroke="{DynamicResource Bg.CardBrush}" StrokeThickness="2.5"/>
+                                            </Grid>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Grip" Property="Width" Value="20"/>
+                                                    <Setter TargetName="Grip" Property="Height" Value="20"/>
+                                                </Trigger>
+                                                <Trigger Property="IsDragging" Value="True">
+                                                    <Setter TargetName="Grip" Property="Width" Value="14"/>
+                                                    <Setter TargetName="Grip" Property="Height" Value="14"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>

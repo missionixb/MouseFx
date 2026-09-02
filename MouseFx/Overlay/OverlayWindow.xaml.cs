@@ -55,13 +55,19 @@ public partial class OverlayWindow : Window
         Loaded += (_, _) => MakeClickThrough();
         CompositionTarget.Rendering += OnRendering;
         RenderCapability.TierChanged += OnTierChanged;
+        Closed += (_, _) =>
+        {
+            // 静态事件必须退订：窗口若被重建，旧实例会永久挂在应用级事件上泄漏
+            CompositionTarget.Rendering -= OnRendering;
+            RenderCapability.TierChanged -= OnTierChanged;
+        };
     }
 
     /// <summary>
     /// 渲染降级监控：硬件加速丢失（Tier &lt; 2）时自动切软件渲染并记录日志。
     /// 软件渲染的透明窗口合成更稳定，可规避与其他 GPU 应用切换时的灰色合成异常。
     /// </summary>
-    private void OnTierChanged(object sender, EventArgs e)
+    private void OnTierChanged(object? sender, EventArgs e)
     {
         bool software = RenderCapability.Tier < 2;
         var mode = software ? RenderMode.SoftwareOnly : RenderMode.Default;

@@ -2,7 +2,7 @@
                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-                 Title="萤火鼠设置" Width="412"
+                 Title="{DynamicResource Str.SettingsTitle}" Width="412"
                  ExtendsContentIntoTitleBar="True" WindowBackdropType="Mica"
                  SizeToContent="Height" ResizeMode="NoResize" WindowStartupLocation="CenterScreen"
                  ShowInTaskbar="False"
@@ -13,7 +13,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <ui:TitleBar Grid.Row="0" Title="萤火鼠设置"
+        <ui:TitleBar Grid.Row="0" Title="{DynamicResource Str.SettingsTitle}"
                      Icon="pack://application:,,,/app.ico"
                      ShowMaximize="False" ShowMinimize="False"/>
 
@@ -22,16 +22,74 @@
             <StackPanel Orientation="Horizontal" Margin="4,4,0,16">
                 <Image Source="pack://application:,,,/app.ico" Width="36" Height="36"/>
                 <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-                    <TextBlock Text="萤火鼠" Style="{StaticResource AppTitle}"/>
-                    <TextBlock Text="鼠标划过，随手生光" Style="{StaticResource Secondary}" Margin="0,2,0,0"/>
+                    <TextBlock Text="{DynamicResource Str.AppName}" Style="{StaticResource AppTitle}"/>
+                    <TextBlock Text="{DynamicResource Str.Tagline}" Style="{StaticResource Secondary}" Margin="0,2,0,0"/>
                 </StackPanel>
             </StackPanel>
 
-            <!-- 特效模式 -->
+            <!-- 通用设置：与模式无关的全局项 -->
             <Border Style="{StaticResource CardBorder}">
                 <StackPanel>
-                    <TextBlock Text="特效模式" Style="{StaticResource SectionTitle}"/>
-                    <TextBlock Text="同一时间使用一种" Style="{StaticResource Secondary}" Margin="0,2,0,0"/>
+                    <TextBlock Text="{DynamicResource Str.General}" Style="{StaticResource SectionTitle}"/>
+
+                    <!-- 开关行 -->
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{DynamicResource Str.IdleFade}" Style="{StaticResource RowLabel}"/>
+                        <ui:ToggleSwitch x:Name="IdleFadeToggle" Grid.Column="1" VerticalAlignment="Center"/>
+                    </Grid>
+                    <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{DynamicResource Str.HideFullscreen}" Style="{StaticResource RowLabel}"/>
+                        <ui:ToggleSwitch x:Name="FullscreenToggle" Grid.Column="1" VerticalAlignment="Center"/>
+                    </Grid>
+                    <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{DynamicResource Str.AutoStart}" Style="{StaticResource RowLabel}"/>
+                        <ui:ToggleSwitch x:Name="AutoStartToggle" Grid.Column="1" VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <!-- 渲染帧率（全局，与模式无关） -->
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="96"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="64"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{DynamicResource Str.RenderFps}" Style="{StaticResource RowLabel}"/>
+                        <Slider x:Name="FpsSlider" Grid.Column="1" Minimum="30" Maximum="144" IsMoveToPointEnabled="True"/>
+                        <TextBlock x:Name="FpsValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
+                    </Grid>
+
+                    <!-- 界面语言（选项用各自原生名，不随语言翻译） -->
+                    <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{DynamicResource Str.Language}" Style="{StaticResource RowLabel}"/>
+                        <ComboBox x:Name="LanguageBox" Grid.Column="1" Width="120" SelectedIndex="0">
+                            <ComboBoxItem Content="中文"/>
+                            <ComboBoxItem Content="English"/>
+                        </ComboBox>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- 特效模式 + 当前模式的参数（切换模式，参数区就地更换） -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource Str.Mode}" Style="{StaticResource SectionTitle}"/>
+                    <TextBlock Text="{DynamicResource Str.ModeHint}" Style="{StaticResource Secondary}" Margin="0,2,0,0"/>
 
                     <!-- 分段选择器：项由 EffectModeRegistry 驱动，新增模式自动出现 -->
                     <Border Background="{DynamicResource Bg.SubtleBrush}"
@@ -51,261 +109,194 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </Border>
-                    <TextBlock x:Name="ModeDescription" Style="{StaticResource Secondary}"
-                               Margin="0,8,0,0" TextWrapping="Wrap"/>
 
-                    <!-- 开关行 -->
-                    <Grid Margin="0,12,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="静止时淡出" Style="{StaticResource RowLabel}"/>
-                            <TextBlock Text="鼠标停下 2 秒后，特效缓缓隐去" Style="{StaticResource Secondary}" Margin="0,2,0,0"/>
-                        </StackPanel>
-                        <ui:ToggleSwitch x:Name="IdleFadeToggle" Grid.Column="1" VerticalAlignment="Center"/>
-                    </Grid>
-                    <Grid Margin="0,10,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="全屏时隐藏" Style="{StaticResource RowLabel}"/>
-                            <TextBlock Text="玩游戏、看全屏画面时不打扰" Style="{StaticResource Secondary}" Margin="0,2,0,0"/>
-                        </StackPanel>
-                        <ui:ToggleSwitch x:Name="FullscreenToggle" Grid.Column="1" VerticalAlignment="Center"/>
-                    </Grid>
-                    <Grid Margin="0,10,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="开机自启" Style="{StaticResource RowLabel}"/>
-                            <TextBlock Text="登录 Windows 后自动运行" Style="{StaticResource Secondary}" Margin="0,2,0,0"/>
-                        </StackPanel>
-                        <ui:ToggleSwitch x:Name="AutoStartToggle" Grid.Column="1" VerticalAlignment="Center"/>
-                    </Grid>
+                    <!-- 光圈参数 -->
+                    <StackPanel x:Name="ClassicPanel">
+                        <Border Height="1" Background="{DynamicResource Stroke.DividerBrush}" Margin="0,14,0,0"/>
+                        <TextBlock Text="{DynamicResource Str.Panel.Halo}" Style="{StaticResource SectionTitle}" Margin="0,12,0,0"/>
 
-                    <!-- 渲染帧率（全局，与模式无关） -->
-                    <StackPanel Margin="0,12,0,0">
-                        <Grid>
+                        <Grid Margin="0,12,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="96"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="64"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="渲染帧率" Style="{StaticResource RowLabel}"/>
-                            <Slider x:Name="FpsSlider" Grid.Column="1" Minimum="30" Maximum="144" IsMoveToPointEnabled="True"/>
-                            <TextBlock x:Name="FpsValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource Str.Color}" Style="{StaticResource RowLabel}"/>
+                                <Rectangle x:Name="ColorPreview" Width="16" Height="16" RadiusX="4" RadiusY="4"
+                                           Stroke="{DynamicResource Stroke.CardBrush}" StrokeThickness="1" Margin="8,0,0,0"/>
+                            </StackPanel>
+                            <Slider x:Name="HueSlider" Grid.Column="1" Minimum="0" Maximum="360" IsMoveToPointEnabled="True"/>
+                            <TextBlock x:Name="HueValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
                         </Grid>
-                        <TextBlock Text="越高拖尾越顺滑（跟手），越低越省 CPU" Style="{StaticResource Secondary}" Margin="0,4,0,0"/>
+
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="96"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="64"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{DynamicResource Str.ClickShape}" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="RippleShapeBox" Grid.Column="1" Margin="0,0,8,0">
+                                <ComboBoxItem Content="{DynamicResource Str.Shape.Circle}"/>
+                                <ComboBoxItem Content="{DynamicResource Str.Shape.Heart}"/>
+                                <ComboBoxItem Content="{DynamicResource Str.Shape.Star}"/>
+                            </ComboBox>
+                        </Grid>
+
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{DynamicResource Str.ClickRipple}" Style="{StaticResource RowLabel}"/>
+                            <ui:ToggleSwitch x:Name="RippleClickToggle" Grid.Column="1" VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="96"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="64"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{DynamicResource Str.HaloSize}" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="RadiusSlider" Grid.Column="1" Minimum="10" Maximum="120" IsMoveToPointEnabled="True"/>
+                            <TextBlock x:Name="RadiusValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
+                        </Grid>
+
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="96"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="64"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{DynamicResource Str.HaloOpacity}" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="OpacitySlider" Grid.Column="1" Minimum="0.05" Maximum="1"
+                                    SmallChange="0.05" LargeChange="0.1" IsMoveToPointEnabled="True"/>
+                            <TextBlock x:Name="OpacityValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
+                        </Grid>
+
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="96"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="64"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{DynamicResource Str.RippleSize}" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="RippleSlider" Grid.Column="1" Minimum="20" Maximum="150" IsMoveToPointEnabled="True"/>
+                            <TextBlock x:Name="RippleValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
+                        </Grid>
+
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="96"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="64"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{DynamicResource Str.FollowSpeed}" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="SpeedSlider" Grid.Column="1" Minimum="10" Maximum="200" IsMoveToPointEnabled="True"/>
+                            <TextBlock x:Name="SpeedValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
+                        </Grid>
+
+                        <ui:Button x:Name="ClassicResetButton" Content="{DynamicResource Str.ResetDefaults}" Appearance="Secondary"
+                                   HorizontalAlignment="Right" Margin="0,14,0,0"/>
                     </StackPanel>
-                </StackPanel>
-            </Border>
 
-            <!-- 光圈参数 -->
-            <Border x:Name="ClassicPanel" Style="{StaticResource CardBorder}">
-                <StackPanel>
-                    <TextBlock Text="光圈参数" Style="{StaticResource SectionTitle}"/>
-                    <TextBlock Text="拖动滑块立即生效，自动保存" Style="{StaticResource Secondary}" Margin="0,2,0,0"/>
+                    <!-- 火屑参数 -->
+                    <StackPanel x:Name="SparkPanel" Visibility="Collapsed">
+                        <Border Height="1" Background="{DynamicResource Stroke.DividerBrush}" Margin="0,14,0,0"/>
+                        <TextBlock Text="{DynamicResource Str.Panel.Spark}" Style="{StaticResource SectionTitle}" Margin="0,12,0,0"/>
 
-                    <Grid Margin="0,12,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="96"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="64"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="颜色" Style="{StaticResource RowLabel}"/>
-                            <Rectangle x:Name="ColorPreview" Width="16" Height="16" RadiusX="4" RadiusY="4"
-                                       Stroke="{DynamicResource Stroke.CardBrush}" StrokeThickness="1" Margin="8,0,0,0"/>
-                        </StackPanel>
-                        <Slider x:Name="HueSlider" Grid.Column="1" Minimum="0" Maximum="360" IsMoveToPointEnabled="True"/>
-                        <TextBlock x:Name="HueValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
-                    </Grid>
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="96"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="64"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource Str.Color}" Style="{StaticResource RowLabel}"/>
+                                <Rectangle x:Name="SparkColorPreview" Width="16" Height="16" RadiusX="4" RadiusY="4"
+                                           Stroke="{DynamicResource Stroke.CardBrush}" StrokeThickness="1" Margin="8,0,0,0"/>
+                            </StackPanel>
+                            <Slider x:Name="SparkHueSlider" Grid.Column="1" Minimum="0" Maximum="360" IsMoveToPointEnabled="True"/>
+                            <TextBlock x:Name="SparkHueValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
+                        </Grid>
 
-                    <Grid Margin="0,12,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="96"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="64"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="点击形状" Style="{StaticResource RowLabel}"/>
-                        <ComboBox x:Name="RippleShapeBox" Grid.Column="1" Margin="0,0,8,0">
-                            <ComboBoxItem Content="圆圈"/>
-                            <ComboBoxItem Content="爱心"/>
-                            <ComboBoxItem Content="星星"/>
-                        </ComboBox>
-                    </Grid>
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="96"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="64"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{DynamicResource Str.ParticleCount}" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="SparkCountSlider" Grid.Column="1" Minimum="50" Maximum="600" IsMoveToPointEnabled="True"/>
+                            <TextBlock x:Name="SparkCountValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
+                        </Grid>
 
-                    <Grid Margin="0,12,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="96"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="64"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="光圈大小" Style="{StaticResource RowLabel}"/>
-                        <Slider x:Name="RadiusSlider" Grid.Column="1" Minimum="10" Maximum="120" IsMoveToPointEnabled="True"/>
-                        <TextBlock x:Name="RadiusValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
-                    </Grid>
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="96"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="64"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{DynamicResource Str.LifeTime}" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="SparkLifeSlider" Grid.Column="1" Minimum="0.4" Maximum="2.5"
+                                    SmallChange="0.1" IsMoveToPointEnabled="True"/>
+                            <TextBlock x:Name="SparkLifeValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
+                        </Grid>
 
-                    <Grid Margin="0,12,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="96"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="64"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="光圈浓度" Style="{StaticResource RowLabel}"/>
-                        <Slider x:Name="OpacitySlider" Grid.Column="1" Minimum="0.05" Maximum="1"
-                                SmallChange="0.05" LargeChange="0.1" IsMoveToPointEnabled="True"/>
-                        <TextBlock x:Name="OpacityValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
-                    </Grid>
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{DynamicResource Str.ClickBurst}" Style="{StaticResource RowLabel}"/>
+                            <ui:ToggleSwitch x:Name="SparkBurstToggle" Grid.Column="1" VerticalAlignment="Center"/>
+                        </Grid>
 
-                    <Grid Margin="0,12,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="点击涟漪" Style="{StaticResource RowLabel}"/>
-                            <TextBlock Text="左键点击时显示扩散涟漪" Style="{StaticResource Secondary}" Margin="0,2,0,0"/>
-                        </StackPanel>
-                        <ui:ToggleSwitch x:Name="RippleClickToggle" Grid.Column="1" VerticalAlignment="Center"/>
-                    </Grid>
+                        <ui:Button x:Name="SparkResetButton" Content="{DynamicResource Str.ResetDefaults}" Appearance="Secondary"
+                                   HorizontalAlignment="Right" Margin="0,14,0,0"/>
+                    </StackPanel>
 
-                    <Grid Margin="0,12,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="96"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="64"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="涟漪大小" Style="{StaticResource RowLabel}"/>
-                        <Slider x:Name="RippleSlider" Grid.Column="1" Minimum="20" Maximum="150" IsMoveToPointEnabled="True"/>
-                        <TextBlock x:Name="RippleValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
-                    </Grid>
+                    <!-- 烟花参数 -->
+                    <StackPanel x:Name="SparklerPanel" Visibility="Collapsed">
+                        <Border Height="1" Background="{DynamicResource Stroke.DividerBrush}" Margin="0,14,0,0"/>
+                        <TextBlock Text="{DynamicResource Str.Panel.Sparkler}" Style="{StaticResource SectionTitle}" Margin="0,12,0,0"/>
 
-                    <Grid Margin="0,12,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="96"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="64"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="跟随速度" Style="{StaticResource RowLabel}"/>
-                        <Slider x:Name="SpeedSlider" Grid.Column="1" Minimum="10" Maximum="200" IsMoveToPointEnabled="True"/>
-                        <TextBlock x:Name="SpeedValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
-                    </Grid>
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="96"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="64"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{DynamicResource Str.ParticleCount}" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="SparklerCountSlider" Grid.Column="1" Minimum="100" Maximum="800" IsMoveToPointEnabled="True"/>
+                            <TextBlock x:Name="SparklerCountValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
+                        </Grid>
 
-                    <ui:Button x:Name="ClassicResetButton" Content="恢复默认" Appearance="Secondary"
-                               HorizontalAlignment="Right" Margin="0,14,0,0"/>
-                </StackPanel>
-            </Border>
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="96"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="64"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{DynamicResource Str.StarSize}" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="SparklerSizeSlider" Grid.Column="1" Minimum="30" Maximum="300" IsMoveToPointEnabled="True"/>
+                            <TextBlock x:Name="SparklerSizeValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
+                        </Grid>
 
-            <!-- 火屑参数 -->
-            <Border x:Name="SparkPanel" Style="{StaticResource CardBorder}" Visibility="Collapsed">
-                <StackPanel>
-                    <TextBlock Text="火屑参数" Style="{StaticResource SectionTitle}"/>
-                    <TextBlock Text="拖动滑块立即生效，自动保存" Style="{StaticResource Secondary}" Margin="0,2,0,0"/>
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{DynamicResource Str.ClickBurst}" Style="{StaticResource RowLabel}"/>
+                            <ui:ToggleSwitch x:Name="SparklerBurstToggle" Grid.Column="1" VerticalAlignment="Center"/>
+                        </Grid>
 
-                    <Grid Margin="0,12,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="96"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="64"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="颜色" Style="{StaticResource RowLabel}"/>
-                            <Rectangle x:Name="SparkColorPreview" Width="16" Height="16" RadiusX="4" RadiusY="4"
-                                       Stroke="{DynamicResource Stroke.CardBrush}" StrokeThickness="1" Margin="8,0,0,0"/>
-                        </StackPanel>
-                        <Slider x:Name="SparkHueSlider" Grid.Column="1" Minimum="0" Maximum="360" IsMoveToPointEnabled="True"/>
-                        <TextBlock x:Name="SparkHueValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
-                    </Grid>
-
-                    <Grid Margin="0,12,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="96"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="64"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="粒子数量" Style="{StaticResource RowLabel}"/>
-                        <Slider x:Name="SparkCountSlider" Grid.Column="1" Minimum="50" Maximum="600" IsMoveToPointEnabled="True"/>
-                        <TextBlock x:Name="SparkCountValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
-                    </Grid>
-
-                    <Grid Margin="0,12,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="96"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="64"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="生命时长" Style="{StaticResource RowLabel}"/>
-                        <Slider x:Name="SparkLifeSlider" Grid.Column="1" Minimum="0.4" Maximum="2.5"
-                                SmallChange="0.1" IsMoveToPointEnabled="True"/>
-                        <TextBlock x:Name="SparkLifeValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
-                    </Grid>
-
-                    <Grid Margin="0,12,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="点击爆裂" Style="{StaticResource RowLabel}"/>
-                            <TextBlock Text="左键点击时炸开一团火星" Style="{StaticResource Secondary}" Margin="0,2,0,0"/>
-                        </StackPanel>
-                        <ui:ToggleSwitch x:Name="SparkBurstToggle" Grid.Column="1" VerticalAlignment="Center"/>
-                    </Grid>
-
-                    <ui:Button x:Name="SparkResetButton" Content="恢复默认" Appearance="Secondary"
-                               HorizontalAlignment="Right" Margin="0,14,0,0"/>
-                </StackPanel>
-            </Border>
-
-            <!-- 烟花参数 -->
-            <Border x:Name="SparklerPanel" Style="{StaticResource CardBorder}" Visibility="Collapsed">
-                <StackPanel>
-                    <TextBlock Text="烟花参数" Style="{StaticResource SectionTitle}"/>
-                    <TextBlock Text="颜色固定为白炽色，无需设置" Style="{StaticResource Secondary}" Margin="0,2,0,0"/>
-
-                    <Grid Margin="0,12,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="96"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="64"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="粒子数量" Style="{StaticResource RowLabel}"/>
-                        <Slider x:Name="SparklerCountSlider" Grid.Column="1" Minimum="100" Maximum="800" IsMoveToPointEnabled="True"/>
-                        <TextBlock x:Name="SparklerCountValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
-                    </Grid>
-
-                    <Grid Margin="0,12,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="96"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="64"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="星芒直径" Style="{StaticResource RowLabel}"/>
-                        <Slider x:Name="SparklerSizeSlider" Grid.Column="1" Minimum="30" Maximum="300" IsMoveToPointEnabled="True"/>
-                        <TextBlock x:Name="SparklerSizeValue" Grid.Column="2" Style="{StaticResource RowValue}"/>
-                    </Grid>
-
-                    <Grid Margin="0,12,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="点击爆裂" Style="{StaticResource RowLabel}"/>
-                            <TextBlock Text="左键点击时星芒炸开一圈" Style="{StaticResource Secondary}" Margin="0,2,0,0"/>
-                        </StackPanel>
-                        <ui:ToggleSwitch x:Name="SparklerBurstToggle" Grid.Column="1" VerticalAlignment="Center"/>
-                    </Grid>
-
-                    <ui:Button x:Name="SparklerResetButton" Content="恢复默认" Appearance="Secondary"
-                               HorizontalAlignment="Right" Margin="0,14,0,0"/>
+                        <ui:Button x:Name="SparklerResetButton" Content="{DynamicResource Str.ResetDefaults}" Appearance="Secondary"
+                                   HorizontalAlignment="Right" Margin="0,14,0,0"/>
+                    </StackPanel>
                 </StackPanel>
             </Border>
         </StackPanel>

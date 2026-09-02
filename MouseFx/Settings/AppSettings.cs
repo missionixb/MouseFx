@@ -83,6 +83,9 @@ public sealed class AppSettings
     /// <summary>渲染帧率上限（30~144，跟随屏幕刷新率上限）。越低越省 CPU，越高拖尾越顺滑。</summary>
     public double RenderFps { get; set; } = 144;
 
+    /// <summary>界面语言（"zh"/"en"，未知值回退 zh，见 L10n.Normalize）。设置项新增英文。</summary>
+    public string Language { get; set; } = L10n.Zh;
+
     /// <summary>光晕跟随指数系数 k（/s），越大越跟手。</summary>
     public double FollowSpeed { get; set; } = 50;
 
