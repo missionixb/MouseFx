@@ -33,13 +33,24 @@ Windows 桌面鼠标特效工具：给光标加上常驻光晕、点击涟漪与
 
 设计文档见 [docs/design.md](docs/design.md)。
 
+## 下载安装
+
+从 [Releases](../../releases) 页面下载 exe 直接运行（绿色单文件，无安装过程）：
+
+| 文件 | 适用场景 |
+|---|---|
+| `MouseFx-vX.Y.Z-win-x64.exe` | **推荐**：自包含，无需安装任何运行时 |
+| `MouseFx-vX.Y.Z-win-x64-lite.exe` | 轻量版（约 10MB）：需先安装 [.NET Desktop Runtime 10](https://dotnet.microsoft.com/download/dotnet/10.0) |
+
+程序启动后常驻系统托盘，可在设置中开启开机自启动。
+
 ## 环境要求与构建
 
 - Windows 10 及以上
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)（`net10.0-windows`）
 
 ```bash
-git clone https://github.com/<your-name>/MouseFx.git
+git clone https://github.com/missionixb/MouseFx.git
 cd MouseFx
 dotnet build
 dotnet run --project MouseFx        # 运行（常驻托盘）
