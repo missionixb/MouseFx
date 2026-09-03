@@ -50,6 +50,29 @@ Windows 桌面鼠标特效工具：给光标加上常驻光晕、点击涟漪与
 
 程序启动后常驻系统托盘，可在设置中开启开机自启动。
 
+## 已知问题
+
+**特效偶尔"发灰"，尤其在切换应用之后**——这是 Windows 11 显示链路的系统级问题，不是本应用的渲染 bug。快速自证：发灰时按 `PrtScr` 截图，截图里的特效颜色正常、只有屏幕上看着灰，即可确认是显示环节（截图抓的是合成缓冲的正确像素，灰化发生在最终扫描输出）。
+
+原因：Win11 的 DWM 会把透明置顶窗口放进显卡的硬件叠加平面（MPO，Multi-Plane Overlay）直接输出，该路径的色彩转换与标准合成不同，半透明渐变内容会偏灰；切换应用会触发叠加平面重新分配，所以时有时无。
+
+按顺序尝试：
+
+1. **关闭 HDR**：设置 → 系统 → 显示 → HDR 关闭（若已开启）
+2. **禁用 MPO**（管理员终端执行后重启）：
+
+   ```powershell
+   reg add "HKLM\SOFTWARE\Microsoft\Windows\Dwm" /v OverlayTestMode /t REG_DWORD /d 5 /f
+   ```
+
+   想恢复时删除该值再重启：
+
+   ```powershell
+   reg delete "HKLM\SOFTWARE\Microsoft\Windows\Dwm" /v OverlayTestMode /f
+   ```
+
+3. **更新显卡驱动**：NVIDIA / AMD / Intel 都在持续修复 MPO 相关的颜色异常
+
 ## 环境要求与构建
 
 - Windows 10 及以上

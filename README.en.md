@@ -40,6 +40,29 @@ Grab an exe from the [Releases](../../releases) page and run it directly (portab
 
 The app lives in the system tray; enable autostart in settings.
 
+## Known Issues
+
+**Effects occasionally look washed out / grayish, especially after switching apps** — this is a system-level issue in the Windows 11 display pipeline, not a rendering bug in this app. Quick self-check: when it happens, take a screenshot with `PrtScr`. If the effects look correct in the screenshot but gray on screen, the display output stage is to blame (screenshots capture the correct composited pixels; the graying happens at final scanout).
+
+Cause: Windows 11's DWM may put transparent topmost windows on a hardware overlay plane (MPO, Multi-Plane Overlay) that scans out directly, whose color conversion differs from standard composition — semi-transparent gradients look washed out there. Switching apps reshuffles overlay planes, so it comes and goes.
+
+Try the following in order:
+
+1. **Turn off HDR**: Settings → System → Display → HDR (if enabled)
+2. **Disable MPO** (admin terminal, then reboot):
+
+   ```powershell
+   reg add "HKLM\SOFTWARE\Microsoft\Windows\Dwm" /v OverlayTestMode /t REG_DWORD /d 5 /f
+   ```
+
+   To revert, delete the value and reboot:
+
+   ```powershell
+   reg delete "HKLM\SOFTWARE\Microsoft\Windows\Dwm" /v OverlayTestMode /f
+   ```
+
+3. **Update your GPU driver**: NVIDIA / AMD / Intel keep fixing MPO-related color glitches
+
 ## Technical Highlights
 
 - Effects render in a fullscreen, click-through overlay window; a Win32 low-level mouse hook (`WH_MOUSE_LL`) only observes events, which are coalesced and marshalled to the UI thread
